@@ -28,7 +28,7 @@ DEBUG = True
 AUTH_USER_MODEL = 'base.User'
 
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['caelium.jerit.in']
 
 
 # Application definition
