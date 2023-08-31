@@ -1,0 +1,171 @@
+{% extends 'main.html' %}
+{% load static %}
+{% block content %}
+  {% comment %} <div class="container mt-5">
+    <div class="row">
+      <div class="col-md-6">
+        <h1>Welcome to Caelium</h1>
+        <p>Connect with your partner and plan your future together.</p>
+        <a href="#" class="btn btn-primary">Get Started</a>
+      </div>
+      <div class="col-md-6">
+        <!-- Add an image or illustration here -->
+      </div>
+    </div>
+  </div> {% endcomment %}
+  <!-- Intro Section -->
+  <section class="container mt-5">
+    <div class="row">
+      <div class="col-md-6">
+        <h2>Welcome, {{ request.user.first_name }}</h2>
+        {% comment %} <p>Connect with your partner and plan your future together.</p> {% endcomment %}
+        <p>"Every day with you is a new chapter in our story."</p>
+      </div>
+      <div class="col-md-6">
+        <!-- Partner Status -->
+        <div id="partnerStatus">
+          <!-- The partner's online/offline status will be displayed here -->
+        </div>
+      </div>
+    </div>
+  </section>
+  <div class="container mt-5">
+        <div class="row">
+            <div class="col-md-6 text-center">
+                <h2>Weather in Kumily</h2>
+                <div class="weather-widget">
+                    <h3>City: <span id="city">{{ weather.0.city }}</span></h3>
+                    <p>Temperature: <span id="temperature">{{ weather.0.temp }}</span>°C</p>
+                    <p>Weather: <span id="weather">{{ weather.0.desc }}</span></p>
+                </div>
+            </div>
+            <div class="col-md-6 text-center">
+                <h2>Weather in Thookupalam</h2>
+                <div class="weather-widget">
+                    <h3>City: <span id="city">{{ weather.1.city }}</span></h3>
+                    <p>Temperature: <span id="temperature">{{ weather.1.temp }}</span>°C</p>
+                    <p>Weather: <span id="weather">{{ weather.1.desc }}</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+  <!-- Days Together Section -->
+  <section class="py-5 my-2">
+    <div class="container">
+      <div class="row">
+        <div class="col-md-6">
+          <h2>Days Together</h2>
+          <p>Counting the beautiful moments we've shared.</p>
+        </div>
+        <div class="col-md-6">
+          <!-- Display total days -->
+          <div id="totalDays" class="display-4">Calculating...</div>
+          <!-- Display "x years, y months, z days" format -->
+          <div id="daysCount" class="h4">Calculating...</div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <!-- Featured Content Section -->
+  <section class="container mt-5">
+    <div class="row">
+      <div class="col-md-4 mb-4">
+        <div class="card h-100">
+          <img src="https://img.freepik.com/free-vector/woman-with-glasses-looking-her-photos_23-2148401305.jpg?w=1480&t=st=1693468741~exp=1693469341~hmac=493e0664094e95b77d6687a2eb36d0df1c1be6cba204d11a0cdb658a1732429f" class="card-img-top" alt="Memory Sharing">
+          <div class="card-body">
+            <h5 class="card-title">Memory Sharing</h5>
+            <p class="card-text">Share and relive your special moments through photos and notes.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4 mb-4">
+        <div class="card h-100">
+          <img src="https://img.freepik.com/free-vector/appointment-booking-with-calendar-concept_23-2148556783.jpg?w=1480&t=st=1693468820~exp=1693469420~hmac=26008faa591532b4b98d39de13bc7c9966171a83af90cc01bf69588c0fa49f10" class="card-img-top" alt="Shared Calendar">
+          <div class="card-body">
+            <h5 class="card-title">Shared Calendar</h5>
+            <p class="card-text">Stay organized with a shared calendar for important dates and events.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4 mb-4">
+        <div class="card h-100">
+          <img src="https://img.freepik.com/free-vector/music-concept-illustration_114360-1081.jpg?w=1480&t=st=1693468996~exp=1693469596~hmac=89a2de72fc27e10579a5a9baf50d59651ece126875bfff52e7c24f13ec6c3694">
+          <div class="card-body">
+            <h5 class="card-title">Playlist Sharing</h5>
+            <p class="card-text">Create and share playlists of songs that hold significance for your relationship.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <!-- Collaborative Art Section -->
+  <section id="collaborative-art" class="py-5">
+    <div class="container">
+      <div class="row">
+        <div class="col-lg-6">
+          <h2>Create Art Together</h2>
+          <p>Express your creativity by drawing together on a shared canvas. Connect with your partner through art!</p>
+          <a href="collaborative-art.html" class="btn btn-primary">Start Drawing</a>
+        </div>
+        <div class="col-lg-6">
+          <!-- You can add an image or illustration here to represent collaborative art -->
+          <img src="https://img.freepik.com/free-vector/modern-people-reading-painting_52683-41945.jpg?w=2000&t=st=1693468668~exp=1693469268~hmac=f4815076d3f0325aa367cc1d0d391c24b9aaae004f6532bdd7b5ce604b5cd495"
+               alt="Collaborative Art"
+               class="img-fluid">
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock content %}
+{% block scripts %}
+  <!-- JavaScript to Calculate and Display Days Count -->
+  <script>
+      // Set the target date (the date you want to count from)
+      const targetDate = new Date('2021-08-28'); // Replace with the actual start date
+
+      // Function to calculate and update the days count
+      function updateDaysCount() {
+          const currentDate = new Date();
+          const timeDifference = currentDate - targetDate;
+
+          const days = Math.floor(timeDifference / (1000 * 60 * 60 * 24)); // Calculate days
+
+          const years = Math.floor(days / 365); // Calculate years
+          const remainingDays = days % 365;
+
+          const months = Math.floor(remainingDays / 30); // Calculate months
+          const remainingMonths = remainingDays % 30;
+
+          document.getElementById('daysCount').textContent = `${years} years, ${months} months, ${remainingMonths} days`;
+          document.getElementById('totalDays').textContent = days;
+      }
+
+      // Call the function to initially update the count
+      updateDaysCount();
+
+      // You can also set up a timer to update the count in real-time if needed
+      // setInterval(updateDaysCount, 1000); // Update every second
+
+
+      // Simulate partner's online status (you should replace this with real data)
+      let partnerOnline = true;
+
+      // Function to update partner's status
+      function updatePartnerStatus() {
+          const partnerStatusElement = document.getElementById('partnerStatus');
+
+          if (partnerOnline) {
+              partnerStatusElement.innerHTML = '<p>Megha is <span class="text-success">online</span></p>';
+          } else {
+              partnerStatusElement.innerHTML = '<p>Megha is <span class="text-danger">offline</span></p>';
+          }
+      }
+
+      // Call the function to initially update the partner's status
+      updatePartnerStatus();
+
+      // You can set up a timer to periodically update the partner's status based on real data
+      // For example, fetch the status from your server or use WebSocket for real-time updates
+      // setInterval(updatePartnerStatus, 30000); // Update every 30 seconds (adjust as needed)
+  </script>
+{% endblock scripts %}
