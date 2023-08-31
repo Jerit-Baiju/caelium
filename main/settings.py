@@ -30,6 +30,7 @@ AUTH_USER_MODEL = 'base.User'
 
 ALLOWED_HOSTS = ['caelium.jerit.in']
 
+CSRF_TRUSTED_ORIGINS = ['https://caelium.jerit.in']
 
 # Application definition
 
