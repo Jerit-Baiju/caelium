@@ -25,10 +25,10 @@ SECRET_KEY = 'django-insecure-#92ovlj4rr_580uckcc&c-w0*6jznbm4)arm55#sgij#wcai_5
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-AUTH_USER_MODEL = 'base.User'
+AUTH_USER_MODEL = 'accounts.User'
 
 
-ALLOWED_HOSTS = ['caelium.jerit.in']
+ALLOWED_HOSTS = ['caelium.jerit.in', '127.0.0.1']
 
 CSRF_TRUSTED_ORIGINS = ['https://caelium.jerit.in']
 
@@ -42,7 +42,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-    'base.apps.BaseConfig'
+    'base.apps.BaseConfig',
+    'accounts.apps.AccountsConfig'
 ]
 
 MIDDLEWARE = [

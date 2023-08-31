@@ -1,2 +1,25 @@
 {% extends 'main.html' %}
-{% block content %}{% endblock content %}
+{% load static %}
+{% block content %}
+  <div class="container d-flex justify-content-center min-vh-100">
+    <div class="row align-items-center w-100">
+      <div class="col-md-6 offset-md-3 text-center">
+        <img class="w-50 mb-5" src="{% static 'written.png' %}" alt="">
+        <h1>Welcome to Caelium</h1>
+        <p>Your space for connecting and planning your future together.</p>
+        <div class="text-center">
+          <a href="{% url 'register' %}" class="btn btn-primary w-25">Sign Up</a>
+          <a href="{% url 'login' %}" class="btn btn-primary w-25">Log In</a>
+        </div>
+        <hr>
+        <div class="text-center">
+          <a href="#" class="btn btn-dark btn-lg">Install Now</a>
+        </div>
+        <hr>
+        <p>
+          For support, <a href="#">contact us</a>.
+        </p>
+      </div>
+    </div>
+  </div>
+{% endblock content %}
