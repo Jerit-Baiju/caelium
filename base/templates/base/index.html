@@ -30,25 +30,37 @@
     </div>
   </section>
   <div class="container mt-5">
-        <div class="row">
-            <div class="col-md-6 text-center">
-                <h2>Weather in Kumily</h2>
-                <div class="weather-widget">
-                    <h3>City: <span id="city">{{ weather.0.city }}</span></h3>
-                    <p>Temperature: <span id="temperature">{{ weather.0.temp }}</span>°C</p>
-                    <p>Weather: <span id="weather">{{ weather.0.desc }}</span></p>
-                </div>
-            </div>
-            <div class="col-md-6 text-center">
-                <h2>Weather in Thookupalam</h2>
-                <div class="weather-widget">
-                    <h3>City: <span id="city">{{ weather.1.city }}</span></h3>
-                    <p>Temperature: <span id="temperature">{{ weather.1.temp }}</span>°C</p>
-                    <p>Weather: <span id="weather">{{ weather.1.desc }}</span></p>
-                </div>
-            </div>
+    <div class="row">
+      <div class="col-md-6 text-center">
+        <h2>Weather in Kumily</h2>
+        <div class="weather-widget">
+          <h3>
+            City: <span id="city">{{ weather.0.city }}</span>
+          </h3>
+          <p>
+            Temperature: <span id="temperature">{{ weather.0.temp }}</span>°C
+          </p>
+          <p>
+            Weather: <span id="weather">{{ weather.0.desc }}</span>
+          </p>
         </div>
+      </div>
+      <div class="col-md-6 text-center">
+        <h2>Weather in Thookupalam</h2>
+        <div class="weather-widget">
+          <h3>
+            City: <span id="city">{{ weather.1.city }}</span>
+          </h3>
+          <p>
+            Temperature: <span id="temperature">{{ weather.1.temp }}</span>°C
+          </p>
+          <p>
+            Weather: <span id="weather">{{ weather.1.desc }}</span>
+          </p>
+        </div>
+      </div>
     </div>
+  </div>
   <!-- Days Together Section -->
   <section class="py-5 my-2">
     <div class="container">
@@ -66,12 +78,26 @@
       </div>
     </div>
   </section>
+  <!-- Include this section wherever you want the "Go to Chat" button to appear -->
+  <div class="container mt-4">
+    <div class="row justify-content-center">
+      <div class="col-md-6">
+        <div class="text-center">
+          <h4>Ready to Chat?</h4>
+          <p>Connect with your partner and start chatting now!</p>
+          <a href="/chat" class="btn btn-primary btn-lg">Go to Chat</a>
+        </div>
+      </div>
+    </div>
+  </div>
   <!-- Featured Content Section -->
   <section class="container mt-5">
     <div class="row">
       <div class="col-md-4 mb-4">
         <div class="card h-100">
-          <img src="https://img.freepik.com/free-vector/woman-with-glasses-looking-her-photos_23-2148401305.jpg?w=1480&t=st=1693468741~exp=1693469341~hmac=493e0664094e95b77d6687a2eb36d0df1c1be6cba204d11a0cdb658a1732429f" class="card-img-top" alt="Memory Sharing">
+          <img src="https://img.freepik.com/free-vector/woman-with-glasses-looking-her-photos_23-2148401305.jpg?w=1480&t=st=1693468741~exp=1693469341~hmac=493e0664094e95b77d6687a2eb36d0df1c1be6cba204d11a0cdb658a1732429f"
+               class="card-img-top"
+               alt="Memory Sharing">
           <div class="card-body">
             <h5 class="card-title">Memory Sharing</h5>
             <p class="card-text">Share and relive your special moments through photos and notes.</p>
@@ -80,7 +106,9 @@
       </div>
       <div class="col-md-4 mb-4">
         <div class="card h-100">
-          <img src="https://img.freepik.com/free-vector/appointment-booking-with-calendar-concept_23-2148556783.jpg?w=1480&t=st=1693468820~exp=1693469420~hmac=26008faa591532b4b98d39de13bc7c9966171a83af90cc01bf69588c0fa49f10" class="card-img-top" alt="Shared Calendar">
+          <img src="https://img.freepik.com/free-vector/appointment-booking-with-calendar-concept_23-2148556783.jpg?w=1480&t=st=1693468820~exp=1693469420~hmac=26008faa591532b4b98d39de13bc7c9966171a83af90cc01bf69588c0fa49f10"
+               class="card-img-top"
+               alt="Shared Calendar">
           <div class="card-body">
             <h5 class="card-title">Shared Calendar</h5>
             <p class="card-text">Stay organized with a shared calendar for important dates and events.</p>
@@ -89,7 +117,8 @@
       </div>
       <div class="col-md-4 mb-4">
         <div class="card h-100">
-          <img src="https://img.freepik.com/free-vector/music-concept-illustration_114360-1081.jpg?w=1480&t=st=1693468996~exp=1693469596~hmac=89a2de72fc27e10579a5a9baf50d59651ece126875bfff52e7c24f13ec6c3694" alt="playlist sharing">
+          <img src="https://img.freepik.com/free-vector/music-concept-illustration_114360-1081.jpg?w=1480&t=st=1693468996~exp=1693469596~hmac=89a2de72fc27e10579a5a9baf50d59651ece126875bfff52e7c24f13ec6c3694"
+               alt="playlist sharing">
           <div class="card-body">
             <h5 class="card-title">Playlist Sharing</h5>
             <p class="card-text">Create and share playlists of songs that hold significance for your relationship.</p>

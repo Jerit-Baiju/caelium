@@ -53,7 +53,7 @@ def login_page(request):
         user = authenticate(request, email=email, password=password)
         if user is not None:
             login(request, user)
-            try:
+            try: 
                 url = request.POST.get('next')
                 cache.clear()
                 return redirect(url)

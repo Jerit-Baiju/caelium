@@ -1,0 +1,30 @@
+{% extends 'main.html' %}
+{% block content %}
+  <div class="container d-flex justify-content-center min-vh-100 pb-5">
+    <div class="row align-items-center w-100 mb-5 pb-5">
+      <div class="col-md-6 offset-md-3">
+        <div class="card">
+          <div class="card-header">
+            <h4 class="text-center">Confirm Partnership</h4>
+          </div>
+          {% if requested %}
+            <div class="card-body">
+              <p>You have been invited to connect with another user in Caelium. Do you want to confirm this partnership?</p>
+              <div class="text-center">
+                <a href="#" class="btn btn-success btn-lg mr-2">Confirm</a>
+                <a href="#" class="btn btn-danger btn-lg">Decline</a>
+              </div>
+            </div>
+          {% else %}
+            <div class="card-body">
+              <p>Sorry, this invitation is not valid</p>
+              <div class="text-center">
+                <a href="{% url 'index' %}" class="btn btn-success btn-lg mr-2">Go Home</a>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock content %}

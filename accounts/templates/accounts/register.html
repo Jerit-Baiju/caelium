@@ -35,15 +35,29 @@
               <div class="text-center mt-3">
                 <button type="submit" class="btn btn-primary btn-lg">Register</button>
               </div>
+              <input type="hidden" name="next" value="{{ request.GET.next }}">
             </form>
           </div>
         </div>
         <hr>
         <div class="text-center"></div>
         <p class="text-center">
-          Already have an account? <a href="{% url 'login' %}">Login</a>.
+          Already have an account? <a href="#"  onclick="handleRegisterClick()">Login</a>.
         </p>
       </div>
     </div>
   </div>
 {% endblock content %}
+{% block scripts %}
+  <script>
+      function handleRegisterClick() {
+          const queryParams = new URLSearchParams(window.location.search);
+          const nextParam = queryParams.get('next');
+          if (nextParam) {
+              window.location.href = '{% url 'login' %}?next=' + nextParam
+          } else {
+              window.location.href = '{% url 'login' %}'
+          }
+      }
+  </script>
+{% endblock scripts %}
