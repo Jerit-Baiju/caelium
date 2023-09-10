@@ -51,7 +51,7 @@ class User(AbstractUser):
     first_name = models.CharField(max_length=20)
     last_name = models.CharField(max_length=20)
     invite_code = models.CharField(max_length=20, unique=True, blank=True, null=True)
-    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, null=True)
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, null=True, blank=True)
     location = models.CharField(max_length=20, default='mumbai')
     objects = UserManager()
     USERNAME_FIELD = 'email'
