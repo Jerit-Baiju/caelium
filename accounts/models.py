@@ -1,3 +1,4 @@
+from re import T
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 
@@ -50,7 +51,7 @@ class User(AbstractUser):
     first_name = models.CharField(max_length=20)
     last_name = models.CharField(max_length=20)
     invite_code = models.CharField(max_length=20, unique=True, blank=True, null=True)
-    gender = models.CharField(max_length=10, choices=GENDER_CHOICES)
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, null=True)
     location = models.CharField(max_length=20, default='mumbai')
     objects = UserManager()
     USERNAME_FIELD = 'email'
