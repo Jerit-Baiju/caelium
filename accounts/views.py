@@ -15,6 +15,7 @@ def register_page(request):
         first_name = request.POST['first_name'].lstrip().rstrip()
         last_name = request.POST['last_name'].lstrip().rstrip()
         email = request.POST['mail']
+        gender = request.POST['gender']
         password = request.POST['password']
         confirm = request.POST['confirm']
         if password == confirm:
@@ -22,7 +23,7 @@ def register_page(request):
                 messages.error(request, 'Email already exists.')
                 return render(request, 'accounts/register.html')
             user = User.objects.create_user( # type: ignore
-                email=email, password=password, first_name=first_name, last_name=last_name)
+                first_name=first_name, last_name=last_name, email=email, gender=gender, password=password)
             user.save()
             login(request, user)
             try:
