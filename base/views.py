@@ -20,7 +20,7 @@ def index(request):
         return redirect('welcome')
     if request.user.partner():
         api_key = '30cabdb500a38872a30c50a0f07c5ad8'
-        cities = ['Kumily', 'Thookkupalam']
+        cities = [request.user.partner().location, request.user.location]
         weather = []
         for city in cities:
             url = f'http://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}'
