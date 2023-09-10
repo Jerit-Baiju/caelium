@@ -28,7 +28,7 @@ DEBUG = True
 AUTH_USER_MODEL = 'accounts.User'
 
 
-ALLOWED_HOSTS = ['caelium.jerit.in', '127.0.0.1']
+ALLOWED_HOSTS = ['caelium.jerit.in', '127.0.0.1', '192.168.43.157']
 
 CSRF_TRUSTED_ORIGINS = ['https://caelium.jerit.in']
 

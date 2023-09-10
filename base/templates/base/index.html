@@ -184,9 +184,9 @@
           const partnerStatusElement = document.getElementById('partnerStatus');
 
           if (partnerOnline) {
-              partnerStatusElement.innerHTML = '<p>Megha is <span class="text-success">online</span></p>';
+              partnerStatusElement.innerHTML = '<p>{{ partner }} is <span class="text-success">online</span></p>';
           } else {
-              partnerStatusElement.innerHTML = '<p>Megha is <span class="text-danger">offline</span></p>';
+              partnerStatusElement.innerHTML = '<p>{{ partner }} is <span class="text-danger">offline</span></p>';
           }
       }
 

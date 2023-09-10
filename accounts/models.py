@@ -1,6 +1,9 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 
+from base.models import Relationship
+
+
 # Create your models here.
 
 
@@ -38,15 +41,34 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractUser):
+    GENDER_CHOICES = [
+        ('Male', 'Male'),
+        ('Female', 'Female'),
+    ]
     username = None
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=20)
     last_name = models.CharField(max_length=20)
     invite_code = models.CharField(max_length=20, unique=True, blank=True, null=True)
-    partner = models.ForeignKey('accounts.User', on_delete=models.CASCADE, null=True, blank=True)
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, null=True)
     objects = UserManager()
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name']
 
     def __str__(self):
-        return f"{self.first_name} {self.last_name}"
+        return f'{self.first_name} {self.last_name}'
+
+    def partner(self):
+        if self.gender == 'Male':
+            try:
+                relationship = Relationship.objects.get(male=self)
+                return relationship.female
+            except:
+                return None
+        if self.gender == 'Female':
+            try:
+                relationship = Relationship.objects.get(female=self)
+                return relationship.male
+            except:
+                return None
+        return None
