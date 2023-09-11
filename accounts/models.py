@@ -1,9 +1,8 @@
-from re import T
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
+from django.db.models import Q
 
 from base.models import Relationship
-
 
 # Create your models here.
 
@@ -40,7 +39,6 @@ class UserManager(BaseUserManager):
 
         return self._create_user(email, password, **extra_fields)
 
-
 class User(AbstractUser):
     GENDER_CHOICES = [
         ('Male', 'Male'),
@@ -52,8 +50,10 @@ class User(AbstractUser):
     last_name = models.CharField(max_length=20)
     invite_code = models.CharField(max_length=20, unique=True, blank=True, null=True)
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, null=True)
-    location = models.CharField(max_length=20, default='mumbai', null=True)
+    location = models.CharField(max_length=20, default='Mumbai', null=True)
+
     objects = UserManager()
+
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name']
 
@@ -61,16 +61,11 @@ class User(AbstractUser):
         return f'{self.first_name} {self.last_name}'
 
     def partner(self):
-        if self.gender == 'Male':
+        if self.gender in ('Male', 'Female'):
             try:
-                relationship = Relationship.objects.get(male=self)
-                return relationship.female
-            except:
-                return None
-        if self.gender == 'Female':
-            try:
-                relationship = Relationship.objects.get(female=self)
-                return relationship.male
-            except:
+                relationship = Relationship.objects.get(Q(male=self) | Q(female=self))
+                return relationship.male if self.gender == 'Female' else relationship.female
+            except Relationship.DoesNotExist:
                 return None
         return None
+    
