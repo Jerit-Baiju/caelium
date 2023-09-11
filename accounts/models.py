@@ -39,6 +39,7 @@ class UserManager(BaseUserManager):
 
         return self._create_user(email, password, **extra_fields)
 
+
 class User(AbstractUser):
     GENDER_CHOICES = [
         ('Male', 'Male'),
@@ -68,4 +69,3 @@ class User(AbstractUser):
             except Relationship.DoesNotExist:
                 return None
         return None
-    
