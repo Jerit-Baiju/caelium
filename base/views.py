@@ -5,7 +5,6 @@ import requests
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.views.generic import TemplateView
@@ -22,7 +21,6 @@ def index(request):
     if not request.user.is_authenticated:
         return redirect('welcome')
     if request.user.partner():
-        # print(request.user.partner())
         api_key = '30cabdb500a38872a30c50a0f07c5ad8'
         cities = [request.user.partner().location, request.user.location]
         weather = []
@@ -99,11 +97,10 @@ def profile(request):
         user.email = email
         user.gender = gender
         user.location = location
-
         try:
             avatar = request.FILES['avatar']
             img = Image.open(avatar)
-            if not img.format.lower() in ['jpeg', 'png', 'jpg']:
+            if str(img.format).lower() not in ['jpeg', 'png', 'jpg']:
                 messages.error(request, 'Invalid image format. Please upload a JPEG, PNG, or GIF.')
                 return redirect('profile')
             max_file_size = getattr(settings, "MAX_FILE_SIZE_BYTES")
