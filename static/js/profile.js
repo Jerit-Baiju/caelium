@@ -1,16 +1,38 @@
 document.addEventListener("DOMContentLoaded", function () {
+  const profileForm = document.querySelector("#profile-form");
   const editButton = document.querySelector("#edit-profile-button");
-  const profilePicture = document.querySelector("#profile-picture");
   const saveChangesButton = document.querySelector("#save-changes-button");
+  const backButton = document.querySelector('#back-button')
+  const inputFields = profileForm.querySelectorAll(".form-control");
+  
+  function checkForChanges() {
+    const inputFields = profileForm.querySelectorAll(".form-control");
+    let hasChanges = false;
+    inputFields.forEach(function (input) {
+      if (input.value !== input.defaultValue) {
+        hasChanges = true;
+        return;
+      }
+    });
+    if (hasChanges) {
+      saveChangesButton.classList.remove("d-none");
+    } else {
+      saveChangesButton.classList.add("d-none");
+    }
+  }
+  profileForm.addEventListener("input", checkForChanges);
   editButton.addEventListener("click", function () {
-    const inputFields = document.querySelectorAll(".form-control");
-    // Toggle the disabled attribute for each input field
     inputFields.forEach(function (input) {
       input.disabled = !input.disabled;
     });
-    // Toggle the visibility of the "Edit your profile" and "Save Changes" buttons
-    profilePicture.classList.toggle("d-none");
     editButton.classList.toggle("d-none");
-    saveChangesButton.classList.toggle("d-none");
+    backButton.classList.toggle("d-none")
   });
+  backButton.addEventListener("click", function () {
+    inputFields.forEach(function (input) {
+      input.disabled = !input.disabled;
+    });
+    editButton.classList.toggle("d-none");
+    backButton.classList.toggle("d-none")
+  })
 });
