@@ -100,7 +100,7 @@ def profile(request):
         try:
             avatar = request.FILES['avatar']
             img = Image.open(avatar)
-            if str(img.format).lower() not in ['jpeg', 'png', 'jpg']:
+            if str(img.format).lower() not in ['jpeg', 'png', 'jpg', 'webp']:
                 messages.error(request, 'Invalid image format. Please upload a JPEG, PNG, or GIF.')
                 return redirect('profile')
             max_file_size = getattr(settings, "MAX_FILE_SIZE_BYTES")
