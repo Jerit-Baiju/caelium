@@ -108,6 +108,8 @@ def profile(request):
                 messages.error(request, 'File size exceeds the allowed limit.')
                 return redirect('profile')
             user.avatar = avatar
+        except KeyError:
+            pass
         except UnidentifiedImageError:
             messages.error(request, 'Cannot identify image file')
             return render(request, 'base/profile.html')
