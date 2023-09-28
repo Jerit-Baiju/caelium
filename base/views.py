@@ -82,7 +82,7 @@ def invitation(request, invite_code):
     return redirect('index')
 
 
-
+@login_required(login_url='login')
 def profile(request):
     if request.method == 'POST':
         first_name = request.POST['first_name'].lstrip().rstrip()
