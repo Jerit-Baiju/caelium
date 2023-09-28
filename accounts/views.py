@@ -14,7 +14,7 @@ def register_page(request):
     if request.method == 'POST':
         first_name = request.POST['first_name'].lstrip().rstrip()
         last_name = request.POST['last_name'].lstrip().rstrip()
-        email = request.POST['mail']
+        email = request.POST['email']
         gender = request.POST['gender']
         password = request.POST['password']
         confirm = request.POST['confirm']

@@ -19,6 +19,7 @@ def index(request):
     if not request.user.is_authenticated:
         return redirect('welcome')
     if request.user.partner():
+        # print(request.user.partner())
         api_key = '30cabdb500a38872a30c50a0f07c5ad8'
         cities = [request.user.partner().location, request.user.location]
         weather = []
@@ -79,6 +80,31 @@ def invitation(request, invite_code):
         return render(request, 'base/invitation.html', context)
     messages.error(request, f'You are already committed to {request.user.partner()}')
     return redirect('index')
+
+
+
+def profile(request):
+    if request.method == 'POST':
+        first_name = request.POST['first_name'].lstrip().rstrip()
+        last_name = request.POST['last_name'].lstrip().rstrip()
+        email = request.POST['email']
+        gender = request.POST['gender']
+        location = request.POST['location']
+        user = User.objects.get(email=request.user.email)
+        user.first_name = first_name
+        user.last_name = last_name
+        user.email = email
+        user.gender = gender
+        user.location = location
+        try:
+            avatar = request.FILES['avatar']
+            user.avatar = avatar
+        except:
+            pass
+        user.save()
+        return redirect('profile')
+    return render(request, 'base/profile.html')
+
 
 
 def test(request):
