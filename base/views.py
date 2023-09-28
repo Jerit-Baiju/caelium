@@ -2,11 +2,14 @@ import secrets
 import string
 
 import requests
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.views.generic import TemplateView
+from PIL import Image, UnidentifiedImageError
 
 from accounts.models import User
 from base.basic import get_profile
@@ -85,8 +88,8 @@ def invitation(request, invite_code):
 @login_required(login_url='login')
 def profile(request):
     if request.method == 'POST':
-        first_name = request.POST['first_name'].lstrip().rstrip()
-        last_name = request.POST['last_name'].lstrip().rstrip()
+        first_name = request.POST['first_name'].strip()
+        last_name = request.POST['last_name'].strip()
         email = request.POST['email']
         gender = request.POST['gender']
         location = request.POST['location']
@@ -96,15 +99,24 @@ def profile(request):
         user.email = email
         user.gender = gender
         user.location = location
+
         try:
             avatar = request.FILES['avatar']
+            img = Image.open(avatar)
+            if not img.format.lower() in ['jpeg', 'png', 'jpg']:
+                messages.error(request, 'Invalid image format. Please upload a JPEG, PNG, or GIF.')
+                return redirect('profile')
+            max_file_size = getattr(settings, "MAX_FILE_SIZE_BYTES")
+            if avatar.size > max_file_size:
+                messages.error(request, 'File size exceeds the allowed limit.')
+                return redirect('profile')
             user.avatar = avatar
-        except:
-            pass
+        except UnidentifiedImageError:
+            messages.error(request, 'Cannot identify image file')
+            return render(request, 'base/profile.html')
         user.save()
         return redirect('profile')
     return render(request, 'base/profile.html')
-
 
 
 def test(request):
