@@ -4,7 +4,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const saveChangesButton = document.querySelector("#save-changes-button");
   const backButton = document.querySelector('#back-button')
   const inputFields = profileForm.querySelectorAll(".form-control");
-  
+
   function checkForChanges() {
     const inputFields = profileForm.querySelectorAll(".form-control");
     let hasChanges = false;
@@ -26,13 +26,14 @@ document.addEventListener("DOMContentLoaded", function () {
       input.disabled = !input.disabled;
     });
     editButton.classList.toggle("d-none");
-    backButton.classList.toggle("d-none")
+    backButton.classList.toggle("d-none");
   });
   backButton.addEventListener("click", function () {
     inputFields.forEach(function (input) {
       input.disabled = !input.disabled;
     });
     editButton.classList.toggle("d-none");
-    backButton.classList.toggle("d-none")
+    saveChangesButton.classList.add("d-none");
+    backButton.classList.toggle("d-none");
   })
 });
