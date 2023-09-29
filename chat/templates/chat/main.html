@@ -1,5 +1,6 @@
 {% extends "main.html" %}
 {% load static %}
+{% load my_filters %}
 {% block content %}
   <link rel="stylesheet" href="{% static "css/chat.css" %}">
   <div class="container w-100 mt-2 sticky-top">
@@ -32,12 +33,14 @@
             {% endfor %}
           </div>
           <div class="card-footer">
-            <div class="input-group">
-              <input type="text" class="form-control" placeholder="Type your message" autofocus>
-              <div class="input-group-append">
-                <button class="btn btn-primary ms-2" type="button">Send</button>
+            <form id="form">
+              <div class="input-group">
+                <input type="text" name="message" class="form-control" placeholder="Type your message" autofocus autocomplete="off">
+                <div class="input-group-append">
+                  <button class="btn btn-primary ms-2" type="submit">Send</button>
+                </div>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       </div>
@@ -46,8 +49,10 @@
 {% endblock content %}
 {% block scripts %}
   <script>
-      var scrollingDiv = document.getElementById("scrollable");
-      scrollingDiv.scrollTop = scrollingDiv.scrollHeight;
-      window.scrollTo(0, document.body.scrollHeight);
+    {{ request.user.email|js_var:'user' }}
+    {{ request.user.partner.email|js_var:'partner' }}
+    {{ request.user.avatar.url|js_var:'user_avatar' }}
+    {{ request.user.partner.avatar.url|js_var:'partner_avatar' }}
   </script>
+  <script src="{% static "js/chat.js" %}"></script>
 {% endblock scripts %}

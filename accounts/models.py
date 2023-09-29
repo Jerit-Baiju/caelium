@@ -70,3 +70,10 @@ class User(AbstractUser):
             except Relationship.DoesNotExist:
                 return None
         return None
+
+
+    def relationship(self):
+        try:
+            return  Relationship.objects.get(Q(male=self) | Q(female=self))
+        except Relationship.DoesNotExist:
+            return None
