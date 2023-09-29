@@ -28,7 +28,7 @@ DEBUG = True
 AUTH_USER_MODEL = 'accounts.User'
 
 
-ALLOWED_HOSTS = ['caelium.jerit.in', '127.0.0.1', '192.168.43.157', '192.168.188.157']
+ALLOWED_HOSTS = ['caelium.jerit.in', '127.0.0.1', '192.168.43.157']
 
 CSRF_TRUSTED_ORIGINS = ['https://caelium.jerit.in']
 
@@ -42,8 +42,12 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    'channels',
+
+    'api.apps.ApiConfig',
+    'accounts.apps.AccountsConfig',
     'base.apps.BaseConfig',
-    'accounts.apps.AccountsConfig'
+    'chat.apps.ChatConfig'
 ]
 
 MIDDLEWARE = [

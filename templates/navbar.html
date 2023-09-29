@@ -10,7 +10,7 @@
           <a class="nav-link active" aria-current="page" href="{% url 'profile' %}">Profile</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="{% url "profile" %}">Profile</a>
+          <a class="nav-link active" aria-current="page" href="{% url "chat" %}">Chat</a>
         </li>
         {% if request.user.is_superuser %}
         <li class="nav-item">
