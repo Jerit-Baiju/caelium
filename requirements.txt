@@ -23,6 +23,7 @@ idna==3.4
 incremental==22.10.0
 jsbeautifier==1.14.9
 json5==0.9.14
+msgpack==1.0.7
 packaging==23.1
 pathspec==0.11.2
 Pillow==10.0.1
@@ -30,7 +31,9 @@ pyasn1==0.5.0
 pyasn1-modules==0.3.0
 pycparser==2.21
 pyOpenSSL==23.2.0
+python-dotenv==1.0.0
 PyYAML==6.0.1
+redis==5.0.1
 regex==2023.8.8
 requests==2.31.0
 service-identity==23.1.0
