@@ -14,6 +14,10 @@ from base.models import Relationship
 
 # Create your views here.
 
+def gen_code(length):
+    characters = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(characters) for _ in range(length))
+
 
 def index(request):
     if not request.user.is_authenticated:
@@ -44,9 +48,8 @@ def invite(request):
         if request.user.invite_code:
             invitation_code = request.user.invite_code
         else:
-            characters = string.ascii_letters + string.digits
-            invitation_code = ''.join(secrets.choice(characters) for _ in range(16))
             user = User.objects.get(id=request.user.id)
+            invitation_code = gen_code(16)
             user.invite_code = invitation_code
             user.save()
         context = {
@@ -64,10 +67,11 @@ def invitation(request, invite_code):
         if request.method == 'POST' and requested:
             action = request.POST.get('action')
             if action == 'accept' and user != requested and user.gender != requested.gender and not user.partner() and not requested.partner():
+                room = gen_code(16)
                 if request.user.gender == 'Male':
-                    Relationship.objects.create(male=request.user, female=requested)
+                    Relationship.objects.create(male=request.user, female=requested, room=room)
                 else:
-                    Relationship.objects.create(male=requested, female=request.user)
+                    Relationship.objects.create(male=requested, female=request.user, room=room)
                 return redirect('index')
         context = {'requested': requested}
         return render(request, 'base/invitation.html', context)

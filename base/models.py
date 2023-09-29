@@ -6,6 +6,7 @@ from django.db import models
 class Relationship(models.Model):
     male = models.OneToOneField('accounts.User', on_delete=models.SET_NULL, related_name='user_1', null=True, blank=True)
     female = models.OneToOneField('accounts.User', on_delete=models.SET_NULL, related_name='user_2', null=True, blank=True)
+    room = models.CharField(max_length=20, unique=True, blank=True, null=True)
     anniversary = models.DateField(auto_now_add=True, null=True)
 
     def __str__(self):
