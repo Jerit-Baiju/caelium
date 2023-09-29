@@ -1,17 +1,15 @@
 import secrets
 import string
 
-import requests
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.views.generic import TemplateView
 from PIL import Image, UnidentifiedImageError
 
 from accounts.models import User
-from base.basic import get_profile
+from api.views import weather_api
 from base.models import Relationship
 
 # Create your views here.
@@ -21,18 +19,10 @@ def index(request):
     if not request.user.is_authenticated:
         return redirect('welcome')
     if request.user.partner():
-        api_key = '30cabdb500a38872a30c50a0f07c5ad8'
         cities = [request.user.partner().location, request.user.location]
         weather = []
         for city in cities:
-            url = f'http://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}'
-            response = requests.get(url, timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                weather.append({'city': data['name'], 'temp': int(
-                    data['main']['temp'])-273, 'desc': data['weather'][0]['description']})
-            else:
-                pass
+            weather.append(weather_api(city))
         context = {
             'weather': weather,
             'partner': request.user.partner()
@@ -42,7 +32,9 @@ def index(request):
 
 
 def welcome(request):
-    return render(request, 'base/welcome.html')
+    if not request.user.is_authenticated:
+        return render(request, 'base/welcome.html')
+    return redirect('index')
 
 
 def invite(request):
@@ -116,11 +108,6 @@ def profile(request):
         user.save()
         return redirect('profile')
     return render(request, 'base/profile.html')
-
-
-def test(request):
-    return HttpResponse(str(get_profile(request)))
-
 
 class ServiceWorkerView(TemplateView):
     content_type = 'application/javascript'
