@@ -12,6 +12,6 @@ def chat(request):
     domain_name = request.META['HTTP_HOST']
     context = {
         'conversation': Message.objects.filter(room=room),
-        'ws': 'wss' if domain_name == 'jerit.in' else 'ws'
+        'ws': 'wss' if 'jerit.in' in domain_name  else 'ws'
     }
     return render(request, 'chat/main.html',  context)
