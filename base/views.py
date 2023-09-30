@@ -1,3 +1,4 @@
+import random
 import secrets
 import string
 
@@ -23,13 +24,11 @@ def index(request):
     if not request.user.is_authenticated:
         return redirect('welcome')
     if request.user.partner():
-        cities = [request.user.partner().location, request.user.location]
-        weather = []
-        for city in cities:
-            weather.append(weather_api(city))
+        weather = weather_api(request.user.partner().location)
         context = {
             'weather': weather,
-            'partner': request.user.partner()
+            'partner': request.user.partner(),
+            'quote': random.choice(['Connect with your partner and plan your future together.','"Every day with you is a new chapter in our story."'])
         }
         return render(request, 'base/index.html', context)
     return redirect('invite')

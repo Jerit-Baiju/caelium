@@ -1,79 +1,30 @@
 {% extends 'main.html' %}
 {% load static %}
 {% block content %}
-  {% comment %} <div class="container mt-5">
-    <div class="row">
-      <div class="col-md-6">
-        <h1>Welcome to Caelium</h1>
-        <p>Connect with your partner and plan your future together.</p>
-        <a href="#" class="btn btn-primary">Get Started</a>
-      </div>
-      <div class="col-md-6">
-        <!-- Add an image or illustration here -->
-      </div>
-    </div>
-  </div> {% endcomment %}
   <!-- Intro Section -->
-  <section class="container mt-5">
-    <div class="row">
+  <section class="container my-5 border border-2 p-4 rounded-3">
+    <div class="row justify-content-center align-items-center">
       <div class="col-md-6">
-        <h2>Welcome, {{ request.user.first_name }}</h2>
-        {% comment %} <p>Connect with your partner and plan your future together.</p> {% endcomment %}
-        <p>"Every day with you is a new chapter in our story."</p>
+        <h1>Welcome, {{ request.user.first_name }}</h1>
+        <p id="partnerStatus" class="p-0 m-0 h5">
+          {{ partner }} is <span class="text-danger">offline</span>
+        </p>
+        <p>{{ quote }}</p>
+        <hr class="d-md-none">
       </div>
       <div class="col-md-6">
-        <!-- Partner Status -->
-        <div id="partnerStatus">
-          <!-- The partner's online/offline status will be displayed here -->
-        </div>
-      </div>
-    </div>
-  </section>
-  <div class="container mt-5">
-    <div class="row">
-      <div class="col-md-6 text-center">
-        <h2>What your partner feels</h2>
-        <div class="weather-widget">
-          <h3>
-            City: <span id="city">{{ weather.0.city }}</span>
-          </h3>
-          <p>
-            Temperature: <span id="temperature">{{ weather.0.temp }}</span>°C
-          </p>
-          <p>
-            Weather: <span id="weather">{{ weather.0.desc }}</span>
-          </p>
-        </div>
-      </div>
-      <div class="col-md-6 text-center">
-        <h2>What you feels like</h2>
-        <div class="weather-widget">
-          <h3>
-            City: <span id="city">{{ weather.1.city }}</span>
-          </h3>
-          <p>
-            Temperature: <span id="temperature">{{ weather.1.temp }}</span>°C
-          </p>
-          <p>
-            Weather: <span id="weather">{{ weather.1.desc }}</span>
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
-  <!-- Days Together Section -->
-  <section class="py-5 my-2">
-    <div class="container">
-      <div class="row">
-        <div class="col-md-6">
-          <h2>Days Together</h2>
-          <p>Counting the beautiful moments we've shared.</p>
-        </div>
-        <div class="col-md-6">
-          <!-- Display total days -->
-          <div id="totalDays" class="display-4">Calculating...</div>
-          <!-- Display "x years, y months, z days" format -->
-          <div id="daysCount" class="h4">Calculating...</div>
+        <div class="row">
+          <div class="col-md-6">
+            <p class="m-0 m-0 h5">
+              Your partner might be feeling
+              <p class="p-0 m-0">like it's {{ weather.temp }}°C outside with the possibility of {{ weather.desc }}.</p>
+            </p>
+        <hr class="d-md-none">
+          </div>
+          <div class="col-md-6">
+            <p id="totalDays" class="p-0 m-0 h5"></p>
+            <p id="daysCount" class="p-0 m-0 h5"></p>
+          </div>
         </div>
       </div>
     </div>
@@ -150,17 +101,17 @@
           const remainingDays = days % 365;
           const months = Math.floor(remainingDays / 30);
           const remainingMonths = remainingDays % 30;
+          document.getElementById('totalDays').textContent = `Day: ${days}`;
           document.getElementById('daysCount').textContent = `${years} years, ${months} months, ${remainingMonths} days`;
-          document.getElementById('totalDays').textContent = days;
       }
       updateDaysCount();
       let partnerOnline = true;
       function updatePartnerStatus() {
           const partnerStatusElement = document.getElementById('partnerStatus');
           if (partnerOnline) {
-              partnerStatusElement.innerHTML = '<p>{{ partner }} is <span class="text-success">online</span></p>';
+              partnerStatusElement.innerHTML = '{{ partner }} is <span class="text-success">online</span>';
           } else {
-              partnerStatusElement.innerHTML = '<p>{{ partner }} is <span class="text-danger">offline</span></p>';
+              partnerStatusElement.innerHTML = '{{ partner }} is <span class="text-danger">offline</span>';
           }
       }
       updatePartnerStatus();
