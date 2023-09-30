@@ -85,7 +85,7 @@
         <div class="text-center">
           <h4>Ready to Chat?</h4>
           <p>Connect with your partner and start chatting now!</p>
-          <a href="#" class="btn btn-primary btn-lg">Go to Chat</a>
+          <a href="{% url "chat" %}" class="btn btn-primary btn-lg">Go to Chat</a>
         </div>
       </div>
     </div>
@@ -95,9 +95,7 @@
     <div class="row">
       <div class="col-md-4 mb-4">
         <div class="card h-100">
-          <img src="{% static 'images/memory.avif' %}"
-               class="card-img-top"
-               alt="Memory Sharing">
+          <img src="{% static 'images/memory.avif' %}" class="card-img-top" alt="Memory Sharing">
           <div class="card-body">
             <h5 class="card-title">Memory Sharing</h5>
             <p class="card-text">Share and relive your special moments through photos and notes.</p>
@@ -106,9 +104,7 @@
       </div>
       <div class="col-md-4 mb-4">
         <div class="card h-100">
-          <img src="{% static 'images/calendar.avif' %}"
-               class="card-img-top"
-               alt="Shared Calendar">
+          <img src="{% static 'images/calendar.avif' %}" class="card-img-top" alt="Shared Calendar">
           <div class="card-body">
             <h5 class="card-title">Shared Calendar</h5>
             <p class="card-text">Stay organized with a shared calendar for important dates and events.</p>
@@ -117,8 +113,7 @@
       </div>
       <div class="col-md-4 mb-4">
         <div class="card h-100">
-          <img src="{% static 'images/music.avif' %}"
-               alt="playlist sharing">
+          <img src="{% static 'images/music.avif' %}" alt="playlist sharing">
           <div class="card-body">
             <h5 class="card-title">Playlist Sharing</h5>
             <p class="card-text">Create and share playlists of songs that hold significance for your relationship.</p>
@@ -134,67 +129,41 @@
         <div class="col-lg-6">
           <h2>Create Art Together</h2>
           <p>Express your creativity by drawing together on a shared canvas. Connect with your partner through art!</p>
-          <a href="#" class="btn btn-primary">Start Drawing</a>
+          <a href="#" class="btn btn-primary mb-3">Start Drawing</a>
         </div>
         <div class="col-lg-6">
           <!-- You can add an image or illustration here to represent collaborative art -->
-          <img src="{% static 'images/collab_art.avif' %}"
-               alt="Collaborative Art"
-               class="img-fluid">
+          <img src="{% static 'images/collab_art.avif' %}" alt="Collaborative Art" class="img-fluid">
         </div>
       </div>
     </div>
   </section>
 {% endblock content %}
 {% block scripts %}
-  <!-- JavaScript to Calculate and Display Days Count -->
   <script>
-      // Set the target date (the date you want to count from)
-      const targetDate = new Date('2021-08-28'); // Replace with the actual start date
-
-      // Function to calculate and update the days count
+      const targetDate = new Date('{{ request.user.relationship.anniversary }}');
       function updateDaysCount() {
           const currentDate = new Date();
           const timeDifference = currentDate - targetDate;
-
-          const days = Math.floor(timeDifference / (1000 * 60 * 60 * 24)); // Calculate days
-
-          const years = Math.floor(days / 365); // Calculate years
+          const days = Math.floor(timeDifference / (1000 * 60 * 60 * 24));
+          const years = Math.floor(days / 365);
           const remainingDays = days % 365;
-
-          const months = Math.floor(remainingDays / 30); // Calculate months
+          const months = Math.floor(remainingDays / 30);
           const remainingMonths = remainingDays % 30;
-
           document.getElementById('daysCount').textContent = `${years} years, ${months} months, ${remainingMonths} days`;
           document.getElementById('totalDays').textContent = days;
       }
-
-      // Call the function to initially update the count
       updateDaysCount();
-
-      // You can also set up a timer to update the count in real-time if needed
-      // setInterval(updateDaysCount, 1000); // Update every second
-
-
-      // Simulate partner's online status (you should replace this with real data)
       let partnerOnline = true;
-
-      // Function to update partner's status
       function updatePartnerStatus() {
           const partnerStatusElement = document.getElementById('partnerStatus');
-
           if (partnerOnline) {
               partnerStatusElement.innerHTML = '<p>{{ partner }} is <span class="text-success">online</span></p>';
           } else {
               partnerStatusElement.innerHTML = '<p>{{ partner }} is <span class="text-danger">offline</span></p>';
           }
       }
-
-      // Call the function to initially update the partner's status
       updatePartnerStatus();
-
-      // You can set up a timer to periodically update the partner's status based on real data
-      // For example, fetch the status from your server or use WebSocket for real-time updates
       // setInterval(updatePartnerStatus, 30000); // Update every 30 seconds (adjust as needed)
   </script>
 {% endblock scripts %}
