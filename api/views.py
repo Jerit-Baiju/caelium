@@ -1,23 +1,20 @@
 # from django.shortcuts import render
 # import os
-from django.core.cache import cache
 import requests
+from django.core.cache import cache
 
 api_key = '30cabdb500a38872a30c50a0f07c5ad8'
-
-
-# Create your views here.
 def weather_api(city):
+    cached_weather = cache.get(city)
+    if cached_weather is not None:
+        return cached_weather
+    url = f'http://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}'
     try:
-        url = f'http://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}'
-        response = requests.get(url, timeout=0)
+        response = requests.get(url, timeout=2)
+        response.raise_for_status()
         data = response.json()
-        cache_data = {'city': data['name'], 'temp': int(
-            data['main']['temp'])-273, 'desc': data['weather'][0]['description']}
-        cache.set('city', cache_data, timeout=24*60*60)
-        return data
-    except:
-        data = cache.get(city)
-        if data is None:
-            data = {'city': city, 'temp': 0, 'desc': 'Unknown'}
-        return data
+        weather = {'city': data['name'], 'temp': int(data['main']['temp']) - 273, 'desc': data['weather'][0]['description']}
+        cache.set(city, weather, 3600)
+        return weather
+    except requests.exceptions.RequestException:
+        return {'city': city, 'temp': 0, 'desc':'unknown place'}

@@ -8,3 +8,4 @@ db.sqlite3
 todo.txt
 media/avatars/
 staticfiles
+test.py
