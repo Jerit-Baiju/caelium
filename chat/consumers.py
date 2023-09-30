@@ -1,5 +1,4 @@
 import json
-from datetime import datetime
 
 import pytz
 from asgiref.sync import sync_to_async
