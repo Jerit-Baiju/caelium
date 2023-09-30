@@ -9,7 +9,9 @@ from chat.models import Message
 @login_required(login_url='login')
 def chat(request):
     room = Relationship.objects.get(Q(male=request.user) | Q(female=request.user))
+    domain_name = request.META['HTTP_HOST']
     context = {
-        'conversation': Message.objects.filter(room=room)
+        'conversation': Message.objects.filter(room=room),
+        'ws': 'wss' if domain_name == 'jerit.in' else 'ws'
     }
     return render(request, 'chat/main.html',  context)

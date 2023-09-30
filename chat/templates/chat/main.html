@@ -53,6 +53,7 @@
     {{ request.user.partner.email|js_var:'partner' }}
     {{ request.user.avatar.url|js_var:'user_avatar' }}
     {{ request.user.partner.avatar.url|js_var:'partner_avatar' }}
+    {{ ws|js_var:'ws' }}
   </script>
   <script src="{% static "js/chat.js" %}"></script>
 {% endblock scripts %}

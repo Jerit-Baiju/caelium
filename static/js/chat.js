@@ -1,4 +1,4 @@
-let url = `ws://${window.location.host}/ws/socket-server/`
+let url = `${ws}://${window.location.host}/ws/socket-server/`
 const chatSocket = new WebSocket(url)
 let form = document.getElementById('form')
 
