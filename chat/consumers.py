@@ -1,5 +1,7 @@
 import json
+from datetime import datetime
 
+import pytz
 from asgiref.sync import sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 
@@ -33,8 +35,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             user = self.scope['user']
             email = user.email
             message_instance = await self.save_message(user, message)
-            time = message_instance.time.strftime("%I:%M %p")
-            # Send message to room group
+            message_time_utc = message_instance.time.replace(tzinfo=pytz.UTC)
+            indian_timezone = pytz.timezone('Asia/Kolkata')
+            time = message_time_utc.astimezone(indian_timezone).strftime('%I:%M %p')
             await self.channel_layer.group_send(
                 self.room_group_name, {'type': 'chat.message', 'message': message, 'user': email, 'time': time}
             )
