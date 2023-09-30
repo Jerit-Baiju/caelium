@@ -1,4 +1,4 @@
-let url = `wss://${window.location.host}/ws/socket-server/`
+let url = `ws://${window.location.host}/ws/socket-server/`
 const chatSocket = new WebSocket(url)
 let form = document.getElementById('form')
 
@@ -10,7 +10,7 @@ chatSocket.onmessage = (e) => {
       var my_msg = $(
         `<div class="media mb-1 justify-content-end d-flex">
           <div class="media-body text-right ps-5">
-            <div class="alert alert-primary" role="alert">${data['data']}</div>ws
+            <div class="alert alert-primary" role="alert">${data['data']}</div>
           </div>
           <div class="img-fluid">
             <img class="ms-2 mt-1 chat-user-profile" src="${user_avatar}" alt="">
