@@ -7,10 +7,13 @@ chatSocket.onmessage = (e) => {
   console.log(data)
   if (data['type'] == 'message') {
     if (data['user'] == user) {
-      var my_msg = $(
+      var msg = $(
         `<div class="media mb-1 justify-content-end d-flex">
           <div class="media-body text-right ps-5">
-            <div class="alert alert-primary" role="alert">${data['data']}</div>
+            <div class="alert alert-primary message" role="alert">
+              <span>${data['data']}</span>
+              <small class="small text-muted position-absolute bottom-0 end-0 pe-2 pt-5">${data['time']}</small>
+            </div>
           </div>
           <div class="img-fluid">
             <img class="ms-2 mt-1 chat-user-profile" src="${user_avatar}" alt="">
@@ -19,18 +22,21 @@ chatSocket.onmessage = (e) => {
       );
     }
     else if (data['user'] == partner) {
-      var my_msg = $(
+      var msg = $(
         `<div class="media mb-1 d-flex">
           <div class="img-fluid">
             <img class="me-2 mt-1 chat-user-profile" src="${partner_avatar}" alt="">
           </div>
           <div class="media-body pe-5">
-            <div class="alert alert-success" role="alert">${data['data']}</div>
+            <div class="alert alert-success message" role="alert">
+              <span>${data['data']}</span>
+              <small class="small text-muted position-absolute bottom-0 end-0 pe-2 pt-5">${data['time']}</small>
+            </div>
           </div>
         </div>`
       );
     }
-    $('#scrollable').append(my_msg);
+    $('#scrollable').append(msg);
     scroll()
   }
 

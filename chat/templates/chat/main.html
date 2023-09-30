@@ -16,14 +16,20 @@
                     <img class="me-2 mt-1 chat-user-profile" src="{{ message.user.avatar.url }}" alt="">
                   </div>
                   <div class="media-body pe-5">
-                    <div class="alert alert-success" role="alert">{{ message.content }}</div>
+                    <div class="alert alert-success message" role="alert">
+                      <span>{{ message.content }}</span>
+                      <small class="small text-muted position-absolute bottom-0 end-0 pe-2 pt-5">{{ message.time|date:"h:i A" }}</small>
+                    </div>
                   </div>
                 </div>
               {% endif %}
               {% if message.user == request.user %}
                 <div class="media mb-1 justify-content-end d-flex">
                   <div class="media-body text-right ps-5">
-                    <div class="alert alert-primary" role="alert">{{ message.content }}</div>
+                    <div class="alert alert-primary message" role="alert">
+                      <span>{{ message.content }}</span>
+                      <small class="small text-muted position-absolute bottom-0 end-0 pe-2 pt-5">{{ message.time|date:"h:i A" }}</small>
+                    </div>
                   </div>
                   <div class="img-fluid">
                     <img class="ms-2 mt-1 chat-user-profile" src="{{ request.user.avatar.url }}" alt="">

@@ -9,3 +9,6 @@
   overflow-y: scroll;
   height: calc(100vh - 168px );
 }
+.message{
+  min-width: 80px;
+}
