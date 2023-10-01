@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 {% load static %}
+{% load my_filters %}
 <html lang="en">
   <head>
     <meta charset="UTF-8">
@@ -32,6 +33,16 @@
             integrity="sha384-Rx+T1VzGupg4BHQYs2gCW9It+akI2MM/mndMCy36UVfodzcJcF0GGLxZIzObiEfa"
             crossorigin="anonymous"></script>
     <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script>
+      {{ request.user|js_var:'user' }}
+      {{ request.user.partner|js_var:'partner' }}
+      {{ request.user.email|js_var:'user_email' }}
+      {{ request.user.partner.email|js_var:'partner_email' }}
+      {{ request.user.avatar.url|js_var:'user_avatar' }}
+      {{ request.user.partner.avatar.url|js_var:'partner_avatar' }}
+      {{ ws|js_var:'ws' }}
+    </script>
+    <script src="{% static "js/main.js" %}"></script>
     {% block scripts %}
     {% endblock scripts %}
   </body>

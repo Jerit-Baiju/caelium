@@ -19,7 +19,7 @@
               Your partner might be feeling
               <p class="p-0 m-0">like it's {{ weather.temp }}°C outside with the possibility of {{ weather.desc }}.</p>
             </p>
-        <hr class="d-md-none">
+            <hr class="d-md-none">
           </div>
           <div class="col-md-6">
             <p id="totalDays" class="p-0 m-0 h5"></p>
@@ -93,28 +93,6 @@
 {% block scripts %}
   <script>
       const targetDate = new Date('{{ request.user.relationship.anniversary }}');
-      function updateDaysCount() {
-          const currentDate = new Date();
-          const timeDifference = currentDate - targetDate;
-          const days = Math.floor(timeDifference / (1000 * 60 * 60 * 24));
-          const years = Math.floor(days / 365);
-          const remainingDays = days % 365;
-          const months = Math.floor(remainingDays / 30);
-          const remainingMonths = remainingDays % 30;
-          document.getElementById('totalDays').textContent = `Day: ${days}`;
-          document.getElementById('daysCount').textContent = `${years} years, ${months} months, ${remainingMonths} days`;
-      }
-      updateDaysCount();
-      let partnerOnline = true;
-      function updatePartnerStatus() {
-          const partnerStatusElement = document.getElementById('partnerStatus');
-          if (partnerOnline) {
-              partnerStatusElement.innerHTML = '{{ partner }} is <span class="text-success">online</span>';
-          } else {
-              partnerStatusElement.innerHTML = '{{ partner }} is <span class="text-danger">offline</span>';
-          }
-      }
-      updatePartnerStatus();
-      // setInterval(updatePartnerStatus, 30000); // Update every 30 seconds (adjust as needed)
   </script>
+  <script src="{% static "js/index.js" %}"></script>
 {% endblock scripts %}
