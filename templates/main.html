@@ -40,7 +40,7 @@
       {{ request.user.partner.email|js_var:'partner_email' }}
       {{ request.user.avatar.url|js_var:'user_avatar' }}
       {{ request.user.partner.avatar.url|js_var:'partner_avatar' }}
-      {{ ws|js_var:'ws' }}
+      {% with state_debug='debug'|env %}{% if state_debug == 'dev' %}{{ state_debug|js_var:'debug' }}{% endif %}{% endwith %}
     </script>
     <script src="{% static "js/main.js" %}"></script>
     {% block scripts %}

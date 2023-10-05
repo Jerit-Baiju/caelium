@@ -3,7 +3,7 @@ let form = document.getElementById('form')
 chatSocket.onmessage = (e) => {
   let data = JSON.parse(e.data)
   if (data['type'] == 'message') {
-    if (data['user'] == user) {
+    if (data['user'] == user_email) {
       var msg = $(
         `<div class="media mb-1 justify-content-end d-flex">
           <div class="media-body text-right ps-5">
@@ -18,7 +18,7 @@ chatSocket.onmessage = (e) => {
         </div>`
       );
     }
-    else if (data['user'] == partner) {
+    else if (data['user'] == partner_email) {
       var msg = $(
         `<div class="media mb-1 d-flex">
           <div class="img-fluid">
@@ -36,6 +36,9 @@ chatSocket.onmessage = (e) => {
     $('#scrollable').append(msg);
     scroll()
   }
+  if (data['type'] == 'status' & data['user'] == partner_email) {
+    updatePartnerStatus(data['status'])
+  }
 }
 function updatePartnerStatus(status) {
   const partnerStatusElement = document.getElementById('status');
@@ -45,14 +48,7 @@ function updatePartnerStatus(status) {
     partnerStatusElement.innerHTML = `${partner} - <span class="text-danger">offline</span>`;
   }
 }
-updatePartnerStatus();
-chatSocket.onmessage = (e) => {
-  data = JSON.parse(e.data)
-  if (data['type'] == 'status' & data['user'] == partner_email) {
-    updatePartnerStatus(data['status'])
-  }
-}
-chatSocket.onclose = function (e) {
+chatSocket.onclose = function () {
   console.error('Chat socket closed unexpectedly');
 };
 form.addEventListener('submit', (e) => {
