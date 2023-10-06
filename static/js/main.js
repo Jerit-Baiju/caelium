@@ -21,6 +21,7 @@ chatSocket.addEventListener('open', (event) => {
     change_state('online');
   };
   window.onload = () => {
+    console.log('opened')
     change_state('online');
   };
 });
