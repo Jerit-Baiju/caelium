@@ -43,9 +43,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 )
         if data['type'] == 'status':
             status = data['content']
-            await self.channel_layer.group_send(
-                self.room_group_name, {'type': 'user.status', 'content': status, 'user': self.scope['user'].email}
-            )
+            if status in ['online', 'offline']:
+                await self.channel_layer.group_send(
+                    self.room_group_name, {'type': 'user.status', 'content': status, 'user': self.scope['user'].email}
+                )
 
     async def chat_message(self, event):
         await self.send(text_data=json.dumps({

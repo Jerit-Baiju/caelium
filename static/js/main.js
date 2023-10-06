@@ -1,6 +1,6 @@
 var protocol = 'ws';
 var domain = window.location.host;
-var user_state = 'offline'
+var user_state = ''
 if (debug == 'pro') {
   protocol = 'wss';
 }
