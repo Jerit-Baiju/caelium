@@ -42,12 +42,13 @@ chatSocket.onmessage = (e) => {
 }
 function updatePartnerStatus(status) {
   const partnerStatusElement = document.getElementById('status');
-  if (status == 'online') {
+  if (status == true || status == 'online') {
     partnerStatusElement.innerHTML = `${partner} - <span class="text-success">online</span>`;
   } else {
     partnerStatusElement.innerHTML = `${partner} - <span class="text-danger">offline</span>`;
   }
 }
+updatePartnerStatus(partner_status)
 chatSocket.onclose = function () {
   console.error('Chat socket closed unexpectedly');
 };
