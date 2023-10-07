@@ -12,13 +12,13 @@ function updateDaysCount() {
 updateDaysCount();
 function updatePartnerStatus(status) {
   const partnerStatusElement = document.getElementById('partnerStatus');
-  if (status == 'online') {
-    partnerStatusElement.innerHTML = `${partner} is <span class="text-success">${status}</span>`;
+  if (status == true || status == 'online') {
+    partnerStatusElement.innerHTML = `${partner} is <span class="text-success">online</span>`;
   } else {
     partnerStatusElement.innerHTML = `${partner} is <span class="text-danger">offline</span>`;
   }
 }
-updatePartnerStatus();
+updatePartnerStatus(partner_status);
 chatSocket.onmessage = (e) => {
   data = JSON.parse(e.data)
   console.log(data)

@@ -51,13 +51,14 @@ class User(AbstractUser):
     last_name = models.CharField(max_length=20)
     invite_code = models.CharField(max_length=20, unique=True, blank=True, null=True)
     avatar = models.ImageField(upload_to='avatars', default='user.png')
-    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, null=True)
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, null=True, default='Male')
     location = models.CharField(max_length=20, default='Mumbai', null=True)
+    status = models.BooleanField(default=False, null=True)
 
     objects = UserManager()
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['first_name', 'last_name', 'gender']
+    REQUIRED_FIELDS = ['first_name', 'last_name']
 
     def __str__(self):
         return f'{self.first_name} {self.last_name}'

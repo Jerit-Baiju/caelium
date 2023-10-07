@@ -4,6 +4,8 @@ import pytz
 from asgiref.sync import sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 
+from accounts.models import User
+
 from .models import Message
 
 
@@ -43,6 +45,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             if data['type'] == 'status':
                 status = data['content']
                 if status in ['online', 'offline']:
+                    await self.update_state(True if status == 'online' else False)
                     await self.channel_layer.group_send(
                         self.room_group_name, {'type': 'user.status', 'content': status, 'user': self.scope['user'].email}
                     )
@@ -70,3 +73,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @sync_to_async
     def get_room(self):
         return self.scope['user'].relationship().room
+
+    @sync_to_async
+    def update_state(self, status):
+        user = User.objects.get(email=self.scope['user'].email)
+        user.status = status
+        user.save()
