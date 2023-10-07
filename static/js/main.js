@@ -20,7 +20,6 @@ chatSocket.addEventListener('open', (event) => {
   window.onfocus = () => {
     change_state('online');
   };
-  change_state('online')
 });
 chatSocket.addEventListener('error', (error) => {
   console.error('WebSocket error:', error);
@@ -28,6 +27,9 @@ chatSocket.addEventListener('error', (error) => {
 chatSocket.addEventListener('close', (event) => {
   console.log('WebSocket connection is closed.');
 });
-window.addEventListener('beforeunload', function (e) {
+window.addEventListener('beforeunload', function () {
   change_state('offline')
 });
+window.addEventListener('onload', function (){
+  change_state('online')
+})
