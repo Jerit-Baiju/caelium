@@ -20,10 +20,7 @@ chatSocket.addEventListener('open', (event) => {
   window.onfocus = () => {
     change_state('online');
   };
-  window.onload = () => {
-    console.log('opened')
-    change_state('online');
-  };
+  change_state('online')
 });
 chatSocket.addEventListener('error', (error) => {
   console.error('WebSocket error:', error);
