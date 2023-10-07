@@ -8,8 +8,8 @@ register = template.Library()
 @register.filter()
 def js_var(data, var_name):
     if isinstance(data, bool):
-        return mark_safe(f"const {var_name} = {str(data).lower()}")
-    return mark_safe(f"const {var_name} = '{data}'")
+        return mark_safe(f"var {var_name} = {str(data).lower()}")
+    return mark_safe(f"var {var_name} = '{data}'")
 
 @register.filter()
 def env(key):
