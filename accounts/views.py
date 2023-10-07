@@ -43,7 +43,7 @@ def login_page(request):
     if request.user.is_authenticated:
         return redirect('index')
     if request.method == 'POST':
-        email = request.POST.get('mail').lower()
+        email = request.POST.get('email').lower()
         password = request.POST.get('password')
         try:
             user = User.objects.get(email=email)
