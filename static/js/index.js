@@ -25,3 +25,9 @@ chatSocket.onmessage = (e) => {
     updatePartnerStatus(data['status'])
   }
 }
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/service-worker.js')
+  });
+}

@@ -8,5 +8,6 @@ urlpatterns = [
     path('invitation/<str:invite_code>/', views.invitation, name='invitation'),
     path('profile/', views.profile, name='profile'),
 
+    path('manifest.json', views.ManifestView.as_view(), name='manifest'),
     path('service-worker.js', views.ServiceWorkerView.as_view(), name='service_worker'),
 ]

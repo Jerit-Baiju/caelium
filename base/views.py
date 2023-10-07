@@ -114,4 +114,8 @@ def profile(request):
 
 class ServiceWorkerView(TemplateView):
     content_type = 'application/javascript'
-    template_name = 'js/service-worker.js'
+    template_name = 'external/service-worker.js'
+
+class ManifestView(TemplateView):
+    content_type = 'text/plain'
+    template_name = 'external/manifest.json'

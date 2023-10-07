@@ -13,9 +13,9 @@
         </div>
         <hr>
         <div class="text-center">
-          <a href="#" class="btn btn-dark btn-lg">Install Now</a>
+          <button id="installButton" class="btn btn-dark btn-lg">Install Now</button>
         </div>
-        <hr>
+        <hr id="installHr">
         <p>
           For support, <a href="#">contact us</a>.
         </p>
@@ -23,3 +23,29 @@
     </div>
   </div>
 {% endblock content %}
+{% block scripts %}
+  <script>
+    const installButton = document.getElementById('installButton');
+    var deferredPrompt
+    if ('BeforeInstallPromptEvent' in window) {
+      window.addEventListener('beforeinstallprompt', (event) => {
+        event.preventDefault();
+        deferredPrompt = event;
+      });
+    }
+    if(window.matchMedia('(display-mode: standalone)').matches) {
+      installButton.classList.add('d-none')
+      document.getElementById('installHr').classList.add('d-none')
+    }
+    installButton.addEventListener('click', () => {
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice.then((choiceResult) => {
+            if (choiceResult.outcome === 'accepted') {
+              console.log('User accepted the PWA installation');
+            } else {
+              console.log('User declined the PWA installation');
+            }
+          });
+        });
+  </script>
+{% endblock scripts %}
