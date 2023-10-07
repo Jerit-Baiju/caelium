@@ -1,6 +1,9 @@
 const CACHE_NAME = "caelium.jerit.in";
 const urlsToCache = [
-  "/",
+  "/static/images/memory.avif",
+  "/static/images/calendar.avif",
+  "/static/images/music.avif",
+  "/static/images/collab_art.avif"
 ];
 self.addEventListener("install", (event) => {
   event.waitUntil(
