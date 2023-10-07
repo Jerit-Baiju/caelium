@@ -21,7 +21,6 @@ function updatePartnerStatus(status) {
 updatePartnerStatus(partner_status);
 chatSocket.onmessage = (e) => {
   data = JSON.parse(e.data)
-  console.log(data)
   if (data['type'] == 'status' & data['user'] == partner_email) {
     updatePartnerStatus(data['status'])
   }
