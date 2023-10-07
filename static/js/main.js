@@ -28,3 +28,6 @@ chatSocket.addEventListener('error', (error) => {
 chatSocket.addEventListener('close', (event) => {
   console.log('WebSocket connection is closed.');
 });
+window.addEventListener('beforeunload', function (e) {
+  change_state('offline')
+});
