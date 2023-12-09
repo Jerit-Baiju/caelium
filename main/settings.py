@@ -33,7 +33,7 @@ DEBUG = True if os.environ['debug'] == 'dev' else False
 AUTH_USER_MODEL = 'accounts.User'
 
 
-ALLOWED_HOSTS = ['api.caelium.jerit.in', '127.0.0.1', '192.168.43.157']
+ALLOWED_HOSTS = ['api-caelium.jerit.in', '127.0.0.1', '192.168.43.157']
 
 CSRF_TRUSTED_ORIGINS = ['https://caelium.jerit.in']
 
