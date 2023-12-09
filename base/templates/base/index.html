@@ -2,7 +2,7 @@
 {% load static %}
 {% block content %}
   <!-- Intro Section -->
-  <section class="container my-5 border border-2 p-4 rounded-3">
+  <section class="container my-5 border-2 p-4 rounded-3">
     <div class="row justify-content-center align-items-center">
       <div class="col-md-6">
         <h1>Welcome, {{ request.user.first_name }}</h1>
@@ -15,7 +15,7 @@
       <div class="col-md-6">
         <div class="row">
           <div class="col-md-6">
-            <p class="m-0 m-0 h5">
+            <p class="m-0 h5">
               Your partner might be feeling
               <p class="p-0 m-0">like it's {{ weather.temp }}°C outside with the possibility of {{ weather.desc }}.</p>
             </p>
