@@ -25,6 +25,7 @@ AUTH_USER_MODEL = 'accounts.User'
 CORS_ALLOWED_ORIGINS = [
     'https://caelium.jerit.in',
     'http://192.168.43.157:3000',
+    'http://localhost:3000'
 ]
 
 # Application definition
