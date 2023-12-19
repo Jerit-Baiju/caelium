@@ -20,6 +20,8 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+AUTH_USER_MODEL = 'accounts.User'
+
 CORS_ALLOWED_ORIGINS = [
     'https://caelium.jerit.in',
     'http://192.168.43.157:3000',
@@ -40,7 +42,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
 
-    'core.apps.CoreConfig'
+    'accounts.apps.AccountsConfig',
+    'base.apps.BaseConfig'
 ]
 
 MIDDLEWARE = [
