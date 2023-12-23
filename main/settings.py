@@ -19,7 +19,8 @@ SECRET_KEY = os.environ['secret_key']
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    '192.168.43.157'
+    '192.168.43.157',
+    'api-caelium.jerit.in'
 ]
 
 AUTH_USER_MODEL = 'accounts.User'
