@@ -1,4 +1,5 @@
 from django.contrib.auth.models import AbstractUser
+from django.core.validators import MinLengthValidator
 from django.db import models
 
 
@@ -8,6 +9,11 @@ class User(AbstractUser):
         ('F', 'Female'),
         ('O', 'Other'),
     ]
+    username = models.CharField(
+        max_length=50,
+        unique=True,
+        validators=[MinLengthValidator(limit_value=4, message='Username must be at least 4 characters long')],
+    )
     name = models.CharField(max_length=30)
     avatar = models.ImageField(upload_to='avatars/', default='media/avatars/default.png', null=True, blank=True)
     location = models.CharField(max_length=100, null=True, blank=True)
