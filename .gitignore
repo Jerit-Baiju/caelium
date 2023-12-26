@@ -6,6 +6,6 @@ migrations
 db.sqlite3
 .vscode
 todo.txt
-media/avatars/
+media/avatars/uploads
 staticfiles
 test.py
