@@ -1,8 +1,12 @@
+import os
 from django.contrib.auth.password_validation import validate_password
+from dotenv import load_dotenv
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import User
+
+load_dotenv()
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -17,7 +21,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['username'] = user.username
         token['name'] = user.name
         token['email'] = user.email
-        token['avatar'] = str(user.avatar)
+        token['avatar'] = f'{os.environ['absolute_url']}{user.avatar}'
         token['birthdate'] = user.birthdate
         return token
 
