@@ -21,7 +21,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['username'] = user.username
         token['name'] = user.name
         token['email'] = user.email
-        token['avatar'] = f'{os.environ['absolute_url']}{user.avatar}'
+        token['avatar'] = os.environ['absolute_url']+str(user.avatar)
         token['birthdate'] = user.birthdate
         return token
 
