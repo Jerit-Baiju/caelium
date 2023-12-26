@@ -19,7 +19,7 @@ SECRET_KEY = os.environ['secret_key']
 DEBUG = True
 
 DOMS = [
-    'https://api-caelium.jerit.in'
+    'https://api-caelium.jerit.in',
     'http://192.168.43.157:3000',
     'http://localhost:3000',
     'https://caelium.jerit.in'
