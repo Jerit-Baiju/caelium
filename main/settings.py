@@ -18,20 +18,20 @@ SECRET_KEY = os.environ['secret_key']
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [
-    '192.168.43.157',
-    'api-caelium.jerit.in'
+DOMS = [
+    'https://api-caelium.jerit.in'
+    'http://192.168.43.157:3000',
+    'http://localhost:3000',
+    'https://caelium.jerit.in'
 ]
+
+ALLOWED_HOSTS = DOMS
 
 AUTH_USER_MODEL = 'accounts.User'
 
-CORS_ALLOWED_ORIGINS = [
-    'caelium.jerit.in'
-    'http://192.168.43.157:3000',
-    'http://localhost:3000'
-]
+CORS_ALLOWED_ORIGINS = DOMS
 
-CSRF_TRUSTED_ORIGINS = [ 'caelium.jerit.in']
+CSRF_TRUSTED_ORIGINS = DOMS
 
 # Application definition
 
