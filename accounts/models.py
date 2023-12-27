@@ -15,7 +15,7 @@ class User(AbstractUser):
         validators=[MinLengthValidator(limit_value=4, message='Username must be at least 4 characters long')],
     )
     name = models.CharField(max_length=30)
-    avatar = models.ImageField(upload_to='avatars/', default='media/avatars/default.png', null=True, blank=True)
+    avatar = models.ImageField(upload_to='media/avatars/uploads/', default='media/avatars/default.png', null=True, blank=True)
     location = models.CharField(max_length=100, null=True, blank=True)
     gender = models.CharField(max_length=1, choices=GENDER_CHOICES, null=True, blank=True, default='Other')
     bio = models.TextField(null=True, blank=True)

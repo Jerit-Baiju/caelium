@@ -24,7 +24,7 @@ ALLOWED_HOSTS = ['api-caelium.jerit.in', '192.168.43.157']
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-CSRF_TRUSTED_ORIGINS = ['https://api-caelium.jerit.in',]
+CSRF_TRUSTED_ORIGINS = ['https://api-caelium.jerit.in', 'chrome-extension://amknoiejhlmhancpahfcfcfhllgkpbld']
 
 # Application definition
 
@@ -42,7 +42,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
 
     'accounts.apps.AccountsConfig',
-    'base.apps.BaseConfig'
+    'base.apps.BaseConfig',
+    'chats.apps.ChatsConfig',
 ]
 
 MIDDLEWARE = [
@@ -128,9 +129,9 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
-MEDIA_ROOT = BASE_DIR / 'media'
+# MEDIA_ROOT = BASE_DIR / 'media'
 
-MEDIA_URL = 'media/'
+MEDIA_URL = '/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
@@ -140,11 +141,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
     )
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60*24*7),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=50),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,

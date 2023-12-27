@@ -12,7 +12,7 @@ load_dotenv()
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('id', 'username', 'name')
+        fields = ('id', 'username', 'name', 'avatar')
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
@@ -21,7 +21,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['username'] = user.username
         token['name'] = user.name
         token['email'] = user.email
-        token['avatar'] = os.environ['absolute_url']+str(user.avatar)
+        token['avatar'] = os.environ['absolute_url']+'/'+str(user.avatar)
         token['birthdate'] = str(user.birthdate)
         return token
 
@@ -47,7 +47,8 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = User.objects.create(
-            username=validated_data['username'],
+            username = validated_data['username'],
+            name = validated_data['name'],
         )
         user.set_password(validated_data['password'])
         user.save()
