@@ -22,7 +22,7 @@ AUTH_USER_MODEL = 'accounts.User'
 
 ALLOWED_HOSTS = ['api-caelium.jerit.in', '192.168.43.157']
 
-CORS_ALLOWED_ORIGINS = ['https://caelium.jerit.in', 'http://192.168.43.157:3000']
+CORS_ALLOWED_ORIGINS = ['https://caelium.jerit.in', 'http://192.168.43.157:3000', 'http://localhost:3000']
 
 CSRF_TRUSTED_ORIGINS = ['https://api-caelium.jerit.in',]
 
