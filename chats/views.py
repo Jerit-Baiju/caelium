@@ -76,21 +76,6 @@ class ChatViewSet(viewsets.ModelViewSet):
 
         return Response(response)
 
-    @action(detail=False, methods=["get"])
-    def users(self, request):
-        current_user = request.user
-        existing_chat_users = User.objects.filter(
-            chat__participants=current_user, is_active=True  # Only get active users
-        ).distinct()
-        new_users = (
-            User.objects.filter(is_active=True)  # Only get active users
-            .exclude(id__in=existing_chat_users)
-            .exclude(id=current_user.id)
-        )
-
-        serializer = UserSerializer(new_users, many=True)
-        return Response(serializer.data)
-
 
 class MessageViewSet(viewsets.ModelViewSet):
     serializer_class = MessageSerializer
