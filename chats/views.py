@@ -102,4 +102,9 @@ class ChatUsers(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return User.objects.filter(is_active=True).exclude(id=self.request.user.id).order_by("name")
+        return (
+            User.objects.filter(is_active=True)
+            .exclude(id=self.request.user.id)
+            .exclude(email="admin@jerit.in")
+            .order_by("name")
+        )
