@@ -8,7 +8,7 @@ router.register(r"", views.ChatViewSet, basename="chats")
 router.register(r"messages/(?P<chat_id>\d+)", views.MessageViewSet, basename="messages")
 
 urlpatterns = [
-    path("users/", views.ChatUsers.as_view({"get": "list"}), name="chat_users")
+    path("users/", views.ChatUsers.as_view({"get": "list"}), name="chat_users"),
 ]
 
 urlpatterns += router.urls

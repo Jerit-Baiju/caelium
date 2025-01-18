@@ -1,18 +1,20 @@
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.mixins import CreateModelMixin, DestroyModelMixin
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.viewsets import GenericViewSet
 
 from accounts.models import User
 from accounts.serializers import UserSerializer
 
-from .models import Chat, Message
-from .serializers import ChatSerializer, MessageCreateSerializer, MessageSerializer
+from .models import Chat, Message, PinnedChat
+from .serializers import ChatSerializer, MessageCreateSerializer, MessageSerializer, PinnedChatSerializer
 
 
 class MessagePagination(PageNumberPagination):
-    page_size = 25
+    page_size = 50
     page_size_query_param = "page_size"
     max_page_size = 100
 
@@ -75,6 +77,27 @@ class ChatViewSet(viewsets.ModelViewSet):
             response[media_type] = serializer.data
 
         return Response(response)
+
+    @action(detail=True, methods=["patch"])
+    def pin(self, request, pk=None):
+        chat = self.get_object()
+        user = request.user
+
+        # Check if chat is already pinned
+        pinned_chat = PinnedChat.objects.filter(user=user, chat=chat).first()
+
+        if pinned_chat:
+            # Unpin the chat
+            pinned_chat.delete()
+            return Response({"isPinned": False}, status=status.HTTP_200_OK)
+        else:
+            # Check if user has reached maximum pins
+            if PinnedChat.objects.filter(user=user).count() >= 5:
+                return Response({"error": "You can only pin up to 5 chats"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Pin the chat
+            PinnedChat.objects.create(user=user, chat=chat)
+            return Response({"isPinned": True}, status=status.HTTP_200_OK)
 
 
 class MessageViewSet(viewsets.ModelViewSet):

@@ -8,7 +8,7 @@ from accounts.models import User
 from accounts.serializers import UserSerializer
 from base.utils import log_admin
 
-from .models import Chat, Message
+from .models import Chat, Message, PinnedChat
 
 
 class ChatSerializer(serializers.ModelSerializer):
@@ -16,6 +16,7 @@ class ChatSerializer(serializers.ModelSerializer):
     participants = UserSerializer(many=True, read_only=True)
     participant_ids = serializers.ListField(child=serializers.IntegerField(), write_only=True, required=False)
     name = serializers.CharField(required=False, allow_blank=True)
+    is_pinned = serializers.SerializerMethodField()
 
     class Meta:
         model = Chat
@@ -29,6 +30,7 @@ class ChatSerializer(serializers.ModelSerializer):
             "group_icon",
             "participant_ids",
             "creator",
+            "is_pinned",
         )
 
     def get_last_message(self, obj):
@@ -36,6 +38,12 @@ class ChatSerializer(serializers.ModelSerializer):
         if last_message:
             return LastMessageSerializer(last_message).data
         return None
+
+    def get_is_pinned(self, obj):
+        request = self.context.get("request")
+        if request and request.user:
+            return obj.is_pinned_by(request.user)
+        return False
 
     def validate(self, data):
         participant_ids = self.context["request"].data.get("participant_ids", [])
@@ -175,3 +183,15 @@ class MessageCreateSerializer(serializers.ModelSerializer):
             if value.size > max_size:
                 raise serializers.ValidationError("File size cannot exceed 10 MB.")
             return value
+
+
+class PinnedChatSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PinnedChat
+        fields = ["chat"]
+
+    def validate(self, attrs):
+        user = self.context["request"].user
+        if PinnedChat.objects.filter(user=user).count() >= 5:
+            raise serializers.ValidationError("You can only pin up to 5 chats.")
+        return attrs
