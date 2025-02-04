@@ -75,6 +75,12 @@ class GoogleLogin(APIView):
         token_data = get_auth_tokens(code, f"{os.environ['CLIENT_HOST']}/api/auth/callback/google")
         data = jwt.decode(token_data["id_token"], options={"verify_signature": False})
         email = data["email"]
+        # Check if email is from mariancollege.org domain
+        if not email.endswith("@mariancollege.org"):
+            return Response(
+                {"error": "Only @mariancollege.org email addresses are allowed."}, status=status.HTTP_403_FORBIDDEN
+            )
+
         name = data["name"]
         google_access_token = token_data["access_token"]
         google_refresh_token = token_data["refresh_token"]
