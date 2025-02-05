@@ -10,6 +10,7 @@ class Chat(models.Model):
     participants = models.ManyToManyField("accounts.User", related_name="chats")
     updated_time = models.DateTimeField(auto_now=True)
     is_group = models.BooleanField(default=False)
+    is_random = models.BooleanField(default=False)
     group_icon = models.ImageField(null=True, blank=True, upload_to="group_icons")
     creator = models.ForeignKey(
         "accounts.User", on_delete=models.CASCADE, null=True, blank=True, related_name="created_chats"

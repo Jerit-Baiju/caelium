@@ -75,10 +75,11 @@ class GoogleLogin(APIView):
         token_data = get_auth_tokens(code, f"{os.environ['CLIENT_HOST']}/api/auth/callback/google")
         data = jwt.decode(token_data["id_token"], options={"verify_signature": False})
         email = data["email"]
-        # Check if email is from mariancollege.org domain
-        if not email.endswith("@mariancollege.org"):
+        # Check if email is from mariancollege.org domain or is jeritalumkal@gmail.com
+        if not (email.endswith("@mariancollege.org") or email == "jeritalumkal@gmail.com"):
             return Response(
-                {"error": "Only @mariancollege.org email addresses are allowed."}, status=status.HTTP_403_FORBIDDEN
+                {"error": "Only @mariancollege.org email addresses and jeritalumkal@gmail.com are allowed."},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         name = data["name"]
