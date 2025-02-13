@@ -18,11 +18,11 @@ class Couple(models.Model):
 class Family(models.Model):
     name = models.CharField(max_length=100, null=True)
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="families", null=True)
-    tasks = models.ManyToManyField('base.Task', blank=True)
+    tasks = models.ManyToManyField("base.Task", blank=True)
 
     class Meta:
         verbose_name_plural = "Families"
-        
+
     def __str__(self):
         return f"{self.name} House"
 
@@ -30,9 +30,7 @@ class Family(models.Model):
 class Member(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     family = models.ForeignKey(Family, on_delete=models.CASCADE)
-    role = models.CharField(
-        max_length=20, choices=[("parent", "Parent"), ("child", "Child")]
-    )
+    role = models.CharField(max_length=20, choices=[("parent", "Parent"), ("child", "Child")])
 
 
 class Work(models.Model):
