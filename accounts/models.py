@@ -2,6 +2,7 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.utils import timezone
 
+
 class UserManager(BaseUserManager):
 
     use_in_migrations = True
@@ -88,3 +89,18 @@ class FCMToken(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - FCM Token"
+
+
+class TestUserEmail(models.Model):
+    email = models.EmailField(unique=True)
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-added_at"]
+
+    def __str__(self):
+        return str(self.email)
+
+    @classmethod
+    def is_allowed_test_email(cls, email):
+        return cls.objects.filter(email=email, is_active=True).exists()
