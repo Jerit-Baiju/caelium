@@ -94,12 +94,14 @@ class FCMToken(models.Model):
 class TestUserEmail(models.Model):
     email = models.EmailField(unique=True)
     added_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         ordering = ["-added_at"]
 
     def __str__(self):
-        return str(self.email)
+        status = "active" if self.is_active else "inactive"
+        return f"{self.email} ({status})"
 
     @classmethod
     def is_allowed_test_email(cls, email):
