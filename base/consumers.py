@@ -110,13 +110,16 @@ class BaseConsumer(WebsocketConsumer):
                         async_to_sync(self.channel_layer.group_send)(
                             f"user_{recipient.id}", {"type": "typing", "data": data}
                         )
+            elif data["category"] == "active_connections_count":
+                self.send_active_connections_count()
+
         except (json.JSONDecodeError, Message.DoesNotExist, Chat.DoesNotExist, KeyError) as e:
             print(" Error:", e)
 
     def handle_random_chat_request(self):
         print(f"User {self.user.username} requesting random chat")
         print(f"Current queue: {self.random_chat_queue}")
-        
+
         # Remove self if already in queue
         if self.user.id in self.random_chat_queue:
             self.random_chat_queue.remove(self.user.id)
@@ -133,18 +136,18 @@ class BaseConsumer(WebsocketConsumer):
 
                     # Remove the matched user from queue
                     self.random_chat_queue.remove(waiting_user_id)
-                    
                     print(f"Matched users: {self.user.username} with {waiting_user.username}")
 
                     # Notify both users
-                    self.send(text_data=json.dumps({
-                        "category": "random_chat_matched",
-                        "chat_id": str(chat.id),
-                        "matched_user": {
-                            "id": str(waiting_user.id),
-                            "username": waiting_user.username
-                        }
-                    }))
+                    self.send(
+                        text_data=json.dumps(
+                            {
+                                "category": "random_chat_matched",
+                                "chat_id": str(chat.id),
+                                "matched_user": {"id": str(waiting_user.id), "username": waiting_user.username},
+                            }
+                        )
+                    )
 
                     async_to_sync(self.channel_layer.group_send)(
                         f"user_{waiting_user.id}",
@@ -153,12 +156,9 @@ class BaseConsumer(WebsocketConsumer):
                             "data": {
                                 "category": "random_chat_matched",
                                 "chat_id": str(chat.id),
-                                "matched_user": {
-                                    "id": str(self.user.id),
-                                    "username": self.user.username
-                                }
-                            }
-                        }
+                                "matched_user": {"id": str(self.user.id), "username": self.user.username},
+                            },
+                        },
                     )
                     return
             except User.DoesNotExist:
@@ -168,13 +168,14 @@ class BaseConsumer(WebsocketConsumer):
         # If no match found, add user to queue
         self.random_chat_queue.append(self.user.id)
         print(f"Added {self.user.username} to queue. Current queue: {self.random_chat_queue}")
-        self.send(text_data=json.dumps({
-            "category": "random_chat_queued",
-            "message": "Looking for someone to chat with..."
-        }))
+        self.send(text_data=json.dumps({"category": "random_chat_queued", "message": "Looking for someone to chat with..."}))
 
     def random_chat_matched(self, event):
         self.send(text_data=json.dumps(event["data"]))
+
+    def send_active_connections_count(self):
+        active_connections_count = len(self.active_connections.get(self.user.id, []))
+        self.send(text_data=json.dumps({"category": "active_connections_count", "count": active_connections_count}))
 
     def new_message(self, event):
         message = event["message"]
