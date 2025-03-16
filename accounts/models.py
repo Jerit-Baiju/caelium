@@ -106,3 +106,24 @@ class TestUserEmail(models.Model):
     @classmethod
     def is_allowed_test_email(cls, email):
         return cls.objects.filter(email=email, is_active=True).exists()
+
+
+class SpecialUser(models.Model):
+    """Model to track special user emails for providing exclusive features and access"""
+
+    email = models.EmailField(unique=True)
+    name = models.CharField(max_length=100)
+    description = models.TextField(null=True, blank=True)
+    added_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["-added_at"]
+
+    def __str__(self):
+        return f"{self.name} ({self.email}) - Special User"
+
+    @classmethod
+    def is_special_user(cls, email):
+        """Check if an email belongs to a special user"""
+        return cls.objects.filter(email=email, is_active=True).exists()
