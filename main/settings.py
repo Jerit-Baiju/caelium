@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "crafts.apps.CraftsConfig",
     "dash.apps.DashConfig",
     "gallery.apps.GalleryConfig",
+    "cloud.apps.CloudConfig",
 ]
 
 MIDDLEWARE = [

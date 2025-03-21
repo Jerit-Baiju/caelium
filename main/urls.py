@@ -13,6 +13,7 @@ urlpatterns = [
     path("api/", include("base.urls")),
     path("api/auth/", include("accounts.urls")),
     path("api/chats/", include("chats.urls")),
+    path("api/cloud/", include("cloud.urls")),
     path("api/crafts/", include("crafts.urls")),
     path("api/gallery/", include("gallery.urls")),
     path("dash/", include("dash.urls")),
