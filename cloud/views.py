@@ -49,9 +49,9 @@ class FileDownloadView(APIView):
             raise Http404("File not found")
 
         # Return the file with decryption
-        if file_obj.file:
+        if file_obj.content:
             # Read the encrypted data
-            encrypted_data = file_obj.file.read()
+            encrypted_data = file_obj.content.read()
 
             # Decrypt the file data
             decrypted_data = self.decrypt_file(encrypted_data, file_obj.encryption_key, file_obj.encryption_iv)
@@ -143,7 +143,7 @@ class FileUploadView(APIView):
             )
 
             # Save the file with encrypted content
-            file_obj.file.save(uploaded_file.name, ContentFile(encryption_result["data"]), save=False)
+            file_obj.content.save(uploaded_file.name, ContentFile(encryption_result["data"]), save=False)
 
             file_obj.save()
             # Add the request context when creating the serializer
