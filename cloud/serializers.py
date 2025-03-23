@@ -29,13 +29,13 @@ class FileSerializer(serializers.ModelSerializer):
             "owner_details",
             "parent",
             "created_at",
-            "modified_at",
             "path",
             "size",
             "mime_type",
             "content",
             "download_url",
             "preview_url",
+            "category",
         ]
         read_only_fields = [
             "id",
@@ -47,6 +47,7 @@ class FileSerializer(serializers.ModelSerializer):
             "encryption_iv",
             "download_url",
             "preview_url",
+            "category",
         ]
         extra_kwargs = {
             "file": {"write_only": True},
