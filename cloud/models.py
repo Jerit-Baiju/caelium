@@ -34,7 +34,7 @@ class File(models.Model):
     name = models.CharField(max_length=255)
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="files")
     parent = models.ForeignKey(Directory, on_delete=models.CASCADE, null=True, blank=True, related_name="files")
-    file = models.FileField(upload_to=file_upload_path)
+    content = models.FileField(upload_to=file_upload_path)
     size = models.BigIntegerField(default=0)
     mime_type = models.CharField(max_length=255, blank=True, null=True)
     encryption_key = models.TextField(blank=True, null=True)
@@ -53,9 +53,9 @@ class File(models.Model):
 
     def delete(self, *args, **kwargs):
         # Delete the actual file when model is deleted
-        if self.file:
-            if os.path.isfile(self.file.path):
-                os.remove(self.file.path)
+        if self.file_content:
+            if os.path.isfile(self.file_content.path):
+                os.remove(self.file_content.path)
         super().delete(*args, **kwargs)
 
 
@@ -67,7 +67,7 @@ class SharedItem(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="shared_items")
-    file = models.ForeignKey(File, on_delete=models.CASCADE, null=True, blank=True, related_name="shared_with")
+    content = models.ForeignKey(File, on_delete=models.CASCADE, null=True, blank=True, related_name="shared_with")
     directory = models.ForeignKey(Directory, on_delete=models.CASCADE, null=True, blank=True, related_name="shared_with")
     permission = models.CharField(max_length=10, choices=PERMISSION_CHOICES, default="view")
     created_at = models.DateTimeField(auto_now_add=True)

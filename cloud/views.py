@@ -52,23 +52,16 @@ class FileDownloadView(APIView):
         if file_obj.file:
             # Read the encrypted data
             encrypted_data = file_obj.file.read()
-            
+
             # Decrypt the file data
-            decrypted_data = self.decrypt_file(
-                encrypted_data, 
-                file_obj.encryption_key, 
-                file_obj.encryption_iv
-            )
-            
+            decrypted_data = self.decrypt_file(encrypted_data, file_obj.encryption_key, file_obj.encryption_iv)
+
             # Create response with decrypted data
-            response = HttpResponse(
-                decrypted_data, 
-                content_type=file_obj.mime_type or "application/octet-stream"
-            )
-            
+            response = HttpResponse(decrypted_data, content_type=file_obj.mime_type or "application/octet-stream")
+
             # Set content disposition to attachment with the original filename
             response["Content-Disposition"] = f'attachment; filename="{file_obj.name}"'
-            
+
             return response
 
         raise Http404("File content not found")
