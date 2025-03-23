@@ -39,7 +39,8 @@ class File(models.Model):
     mime_type = models.CharField(max_length=255, blank=True, null=True)
     encryption_key = models.TextField(blank=True, null=True)
     encryption_iv = models.TextField(blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField()
+    category = models.CharField(max_length=50, blank=True, null=True)
     # removed modified_at as per requirement
 
     @property

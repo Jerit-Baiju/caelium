@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 
 from cloud.models import Directory, File
 from cloud.serializers import FileSerializer
+from cloud.utils import check_type, extract_date_from_filename, get_directory_path
 
 
 class FileDownloadView(APIView):
@@ -102,13 +103,30 @@ class FileUploadView(APIView):
             "iv": base64.b64encode(iv).decode("utf-8"),
         }
 
+    def create_or_get_directory(self, user, directory_name, parent=None):
+        """Create a directory if it doesn't exist or get it if it does"""
+        directory, created = Directory.objects.get_or_create(
+            name=directory_name,
+            owner=user,
+            parent=parent,
+        )
+        return directory
+
+    def create_directory_hierarchy(self, user, path_hierarchy):
+        """Create or get a directory hierarchy from a list of directory names"""
+        parent = None
+        for directory_name in path_hierarchy:
+            parent = self.create_or_get_directory(user, directory_name, parent)
+        return parent
+
     @transaction.atomic
     def post(self, request, format=None):
         """Handle POST request for multiple file uploads"""
         parent_dir_id = request.data.get("parent_directory") or request.data.get("parent")
         parent_directory = None
+        use_auto_organization = str(request.data.get("auto_organize", "false")).lower() == "true"
 
-        # Check if a parent directory was specified
+        # Check if a parent directory was specified and it exists
         if parent_dir_id:
             try:
                 parent_directory = Directory.objects.get(id=parent_dir_id, owner=request.user)
@@ -128,6 +146,21 @@ class FileUploadView(APIView):
             file_size = len(file_data)
             mime_type = uploaded_file.content_type or "application/octet-stream"
 
+            # Determine file category based on filename
+            category = check_type(uploaded_file.name)
+
+            # Extract creation date from filename
+            file_date = extract_date_from_filename(uploaded_file.name)
+
+            # Determine parent directory based on auto-organization
+            file_parent = parent_directory
+            if use_auto_organization:
+                # Get directory path hierarchy from filename
+                path_hierarchy = get_directory_path(uploaded_file.name)
+                if path_hierarchy:
+                    # Create directory hierarchy and use the leaf directory as parent
+                    file_parent = self.create_directory_hierarchy(request.user, path_hierarchy)
+
             # Encrypt the file
             encryption_result = self.encrypt_file(file_data)
 
@@ -135,11 +168,13 @@ class FileUploadView(APIView):
             file_obj = File(
                 name=uploaded_file.name,
                 owner=request.user,
-                parent=parent_directory,
+                parent=file_parent,
                 size=file_size,
                 mime_type=mime_type,
                 encryption_key=encryption_result["key"],
                 encryption_iv=encryption_result["iv"],
+                category=category,
+                created_at=file_date,  # Set the creation date based on filename
             )
 
             # Save the file with encrypted content
