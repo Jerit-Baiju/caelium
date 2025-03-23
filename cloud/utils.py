@@ -13,19 +13,33 @@ def any_in(checks, target):
 
 
 def check_type(raw_name, other=False):
+    """
+    Determine the file type category based on the filename.
+    
+    Returns a tuple of (main_category, sub_category) to build the folder structure.
+    """
+    # Audio files
     if raw_name.endswith(".opus"):
-        return "Voice Notes"
-    if "record" in raw_name.lower():
-        return "Screen Records"
-    if raw_name.startswith("Screenshot"):
-        return "Screenshots"
-    if raw_name.endswith((".mp4", ".MP4")):
-        return "Videos"
+        return ("Audio", "Voice Notes")
     if any_in([")_", "call"], raw_name.lower()):
-        return "Call Records"
-    if raw_name.startswith("DOC") or raw_name.endswith((".pdf", ".csv")):
-        return "Documents"
-    return "Other" if other else "main"
+        return ("Audio", "Call Records")
+    
+    # Video files
+    if raw_name.endswith((".mp4", ".MP4", ".mov", ".MOV", ".avi", ".AVI")):
+        return ("Videos", None)
+    if "record" in raw_name.lower() or "screenrecord" in raw_name.lower():
+        return ("Videos", "Screen Records")
+    
+    # Image files
+    if raw_name.startswith("Screenshot"):
+        return ("Pictures", "Screenshots")
+    
+    # Document files
+    if raw_name.startswith("DOC") or raw_name.endswith((".pdf", ".csv", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt")):
+        return ("Documents", None)
+    
+    # Default: Pictures or Other
+    return ("Other", None) if other else ("Pictures", None)
 
 
 def get_directory_path(filename):
@@ -121,19 +135,29 @@ def get_directory_path(filename):
         except:
             timestamp = str(datetime.today().strftime(r"%Y%m%d"))
             date = datetime.strptime(timestamp, "%Y%m%d")
-        print(date)
-        # Create directory path hierarchy as a list
-        path_hierarchy = [str(date.year), date.strftime("%B")]
 
-        # Add file type folder if needed
-        file_type = check_type(filename, is_other)
-        if file_type != "main":
-            path_hierarchy.append(file_type)
-
+        # Get file type and create the folder hierarchy
+        main_category, sub_category = check_type(filename, is_other)
+        
+        # Create path hierarchy with main category always first
+        path_hierarchy = [main_category]
+        
+        # Add subcategory if it exists
+        if sub_category:
+            path_hierarchy.append(sub_category)
+            
+        # Optionally add year/month structure for organization within categories
+        # path_hierarchy.extend([str(date.year), date.strftime("%B")])
+        
         return path_hierarchy
 
     except:
-        return None
+        # If anything fails, just use the file type categorization
+        main_category, sub_category = check_type(filename, True)
+        path_hierarchy = [main_category]
+        if sub_category:
+            path_hierarchy.append(sub_category)
+        return path_hierarchy
 
 
 def get_file_destination(filename, destination_dir=DESTINATION_DIR):

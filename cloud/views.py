@@ -124,7 +124,8 @@ class FileUploadView(APIView):
         """Handle POST request for multiple file uploads"""
         parent_dir_id = request.data.get("parent_directory") or request.data.get("parent")
         parent_directory = None
-        use_auto_organization = str(request.data.get("auto_organize", "false")).lower() == "true"
+        # Default auto_organize to True if not specified
+        use_auto_organization = str(request.data.get("auto_organize", "true")).lower() == "true"
 
         # Check if a parent directory was specified and it exists
         if parent_dir_id:
@@ -147,7 +148,9 @@ class FileUploadView(APIView):
             mime_type = uploaded_file.content_type or "application/octet-stream"
 
             # Determine file category based on filename
-            category = check_type(uploaded_file.name)
+            main_category, sub_category = check_type(uploaded_file.name)
+            # Use the main category as the file category for database storage
+            category = main_category
 
             # Extract creation date from filename
             file_date = extract_date_from_filename(uploaded_file.name)
