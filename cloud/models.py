@@ -40,7 +40,7 @@ class File(models.Model):
     encryption_key = models.TextField(blank=True, null=True)
     encryption_iv = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
+    # removed modified_at as per requirement
 
     @property
     def path(self):
@@ -53,9 +53,9 @@ class File(models.Model):
 
     def delete(self, *args, **kwargs):
         # Delete the actual file when model is deleted
-        if self.file_content:
-            if os.path.isfile(self.file_content.path):
-                os.remove(self.file_content.path)
+        if self.content:
+            if os.path.isfile(self.content.path):
+                os.remove(self.content.path)
         super().delete(*args, **kwargs)
 
 
@@ -73,5 +73,32 @@ class SharedItem(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        shared_item = self.file.name if self.file else self.directory.name
+        shared_item = self.content.name if self.content else self.directory.name
         return f"{shared_item} shared with {self.user.email}"
+
+
+class Tag(models.Model):
+    """Model to represent tags for files"""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.name}"
+
+
+class FileTag(models.Model):
+    """Model to connect files with tags and users who applied them"""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    file = models.ForeignKey(File, on_delete=models.CASCADE, related_name="file_tags")
+    tag = models.ForeignKey(Tag, on_delete=models.CASCADE, related_name="file_tags")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="applied_tags")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("file", "tag", "user")
+
+    def __str__(self):
+        return f"{self.file.name} - {self.tag.name} (by {self.user.username})"
