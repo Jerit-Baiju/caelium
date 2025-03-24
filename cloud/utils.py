@@ -15,31 +15,65 @@ def any_in(checks, target):
 def check_type(raw_name, other=False):
     """
     Determine the file type category based on the filename.
-    
+
     Returns a tuple of (main_category, sub_category) to build the folder structure.
     """
+    raw_name_lower = raw_name.lower()
+
     # Audio files
-    if raw_name.endswith(".opus"):
-        return ("Audio", "Voice Notes")
-    if any_in([")_", "call"], raw_name.lower()):
+    if raw_name.endswith((".opus", ".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac")):
+        return ("Audio", "Voice Notes" if raw_name.endswith(".opus") else None)
+    if any_in([")_", "call"], raw_name_lower):
         return ("Audio", "Call Records")
-    
+
     # Video files
-    if raw_name.endswith((".mp4", ".MP4", ".mov", ".MOV", ".avi", ".AVI")):
+    if raw_name.endswith((".mp4", ".MP4", ".mov", ".MOV", ".avi", ".AVI", ".mkv", ".webm", ".flv", ".3gp")):
         return ("Videos", None)
-    if "record" in raw_name.lower() or "screenrecord" in raw_name.lower():
+    if "record" in raw_name_lower or "screenrecord" in raw_name_lower:
         return ("Videos", "Screen Records")
-    
+
     # Image files
+    if raw_name.endswith((".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".heic", ".JPG", ".JPEG", ".PNG")):
+        return ("Pictures", None)
     if raw_name.startswith("Screenshot"):
         return ("Pictures", "Screenshots")
-    
+    if raw_name.startswith(("IMG_", "IMG-", "MVIMG_")) and not raw_name.endswith((".mp4", ".MP4", ".mov", ".MOV")):
+        return ("Pictures", None)
+
     # Document files
-    if raw_name.startswith("DOC") or raw_name.endswith((".pdf", ".csv", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt")):
+    if raw_name.startswith("DOC") or raw_name.endswith(
+        (
+            ".pdf",
+            ".csv",
+            ".doc",
+            ".docx",
+            ".xls",
+            ".xlsx",
+            ".ppt",
+            ".pptx",
+            ".txt",
+            ".rtf",
+            ".odt",
+            ".ods",
+            ".odp",
+            ".htm",
+            ".html",
+            ".xml",
+            ".json",
+        )
+    ):
         return ("Documents", None)
-    
-    # Default: Pictures or Other
-    return ("Other", None) if other else ("Pictures", None)
+
+    # Archives
+    if raw_name.endswith((".zip", ".rar", ".7z", ".tar", ".gz", ".bz2")):
+        return ("Archives", None)
+
+    # Applications/Executables
+    if raw_name.endswith((".apk", ".exe", ".msi", ".dmg", ".app", ".sh", ".bat")):
+        return ("Applications", None)
+
+    # Default: Return "Other" only when truly unknown
+    return ("Other", None)
 
 
 def get_directory_path(filename):
@@ -138,17 +172,17 @@ def get_directory_path(filename):
 
         # Get file type and create the folder hierarchy
         main_category, sub_category = check_type(filename, is_other)
-        
+
         # Create path hierarchy with main category always first
         path_hierarchy = [main_category]
-        
+
         # Add subcategory if it exists
         if sub_category:
             path_hierarchy.append(sub_category)
-            
+
         # Optionally add year/month structure for organization within categories
         # path_hierarchy.extend([str(date.year), date.strftime("%B")])
-        
+
         return path_hierarchy
 
     except:
