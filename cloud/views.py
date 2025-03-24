@@ -190,31 +190,6 @@ class FileUploadView(APIView):
         return Response({"files": uploaded_files}, status=status.HTTP_201_CREATED)
 
 
-class FileListView(APIView):
-    """View for listing files for the authenticated user"""
-
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, format=None):
-        """Get all files owned by the authenticated user"""
-        # Get optional query parameters
-        parent_id = request.query_params.get("parent", None)
-
-        # Filter by parent directory if specified
-        if parent_id:
-            try:
-                parent = Directory.objects.get(id=parent_id, owner=request.user)
-                files = File.objects.filter(owner=request.user, parent=parent)
-            except Directory.DoesNotExist:
-                return Response({"error": "Parent directory not found"}, status=status.HTTP_404_NOT_FOUND)
-        else:
-            # Get files in root directory (parent=None)
-            files = File.objects.filter(owner=request.user, parent=None)
-
-        serializer = FileSerializer(files, many=True, context={"request": request})
-        return Response(serializer.data)
-
-
 class DirectoryListView(APIView):
     """View for listing and creating directories"""
 
@@ -314,3 +289,70 @@ class DirectoryDetailView(APIView):
         # Recursively delete all contents
         directory.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class GalleryListView(APIView):
+    """View for listing media files (images and videos) for the authenticated user"""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, format=None):
+        """Get all media files (with category Pictures or Videos) owned by the authenticated user"""
+        # Get optional query parameters
+        parent_id = request.query_params.get("parent", None)
+
+        # Define media categories to include in gallery
+        media_categories = ["Pictures", "Videos"]
+
+        from django.db.models import Q
+
+        # Build query to match any media category - case insensitive
+        category_query = Q(category__iexact=media_categories[0])
+        for category in media_categories[1:]:
+            category_query |= Q(category__iexact=category)
+
+        # Start building the queryset - filter by owner and categories
+        queryset = File.objects.filter(category_query, owner=request.user)
+
+        # Debug: Print the SQL query and count
+        print(f"SQL Query: {queryset.query}")
+        print(f"Count: {queryset.count()}")
+
+        # If no results found, try a more flexible query that checks if category contains these words
+        if queryset.count() == 0:
+            category_query = (
+                Q(category__icontains="picture") | Q(category__icontains="video") | Q(category__icontains="image")
+            )
+            queryset = File.objects.filter(category_query, owner=request.user)
+            print(f"Fallback SQL Query: {queryset.query}")
+            print(f"Fallback Count: {queryset.count()}")
+
+        # Filter by parent directory if specified
+        if parent_id:
+            try:
+                parent = Directory.objects.get(id=parent_id, owner=request.user)
+                queryset = queryset.filter(parent=parent)
+            except Directory.DoesNotExist:
+                return Response({"error": "Parent directory not found"}, status=status.HTTP_404_NOT_FOUND)
+        # Remove the else clause that was filtering to only root files
+        # This way we return ALL media files when no parent is specified
+
+        # Add debug print to check final queryset
+        print(f"Final Count: {queryset.count()}")
+
+        # If still no results found, return a more descriptive response
+        if queryset.count() == 0:
+            # Check if there are any files for this user at all
+            total_files = File.objects.filter(owner=request.user).count()
+            if total_files > 0:
+                # Get a list of unique categories for debugging
+                categories = File.objects.filter(owner=request.user).values_list("category", flat=True).distinct()
+                return Response(
+                    {
+                        "message": "No media files found with the categories Pictures or Videos.",
+                        "debug_info": {"total_files": total_files, "available_categories": list(categories)},
+                    }
+                )
+
+        serializer = FileSerializer(queryset, many=True, context={"request": request})
+        return Response(serializer.data)
