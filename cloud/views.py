@@ -124,7 +124,7 @@ class FileUploadView(APIView):
         """Handle POST request for multiple file uploads"""
         parent_dir_id = request.data.get("parent_directory") or request.data.get("parent")
         parent_directory = None
-        # Default auto_organize to True if not specified
+        # Parse auto_organize from request, default to True if not specified or from upload page
         use_auto_organization = str(request.data.get("auto_organize", "true")).lower() == "true"
 
         # Check if a parent directory was specified and it exists
