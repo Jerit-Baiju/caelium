@@ -21,7 +21,6 @@ class FileAdmin(admin.ModelAdmin):
     list_display = ("name", "owner", "get_path", "size", "category")
     list_filter = ("owner", "mime_type", "created_at")
     search_fields = ("name", "owner__username", "mime_type")
-    date_hierarchy = "created_at"
     readonly_fields = ("size",)
 
     def get_path(self, obj):
