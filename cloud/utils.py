@@ -35,7 +35,8 @@ def check_type(raw_name, other=False):
     # Image files
     if raw_name.endswith((".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".heic", ".JPG", ".JPEG", ".PNG")):
         return ("Pictures", None)
-    if raw_name.startswith("Screenshot"):
+    # Updated screenshot detection to handle "Screenshot_" pattern
+    if raw_name.startswith(("Screenshot", "Screenshot_")):
         return ("Pictures", "Screenshots")
     if raw_name.startswith(("IMG_", "IMG-", "MVIMG_")) and not raw_name.endswith((".mp4", ".MP4", ".mov", ".MOV")):
         return ("Pictures", None)
@@ -180,8 +181,16 @@ def get_directory_path(filename):
         if sub_category:
             path_hierarchy.append(sub_category)
 
-        # Optionally add year/month structure for organization within categories
-        # path_hierarchy.extend([str(date.year), date.strftime("%B")])
+        # Force screenshot pattern detection regardless of timestamp extraction
+        # This ensures all screenshot files go to Screenshots subfolder
+        if filename.startswith(("Screenshot", "Screenshot_")):
+            if len(path_hierarchy) == 1:  # Only has main category
+                path_hierarchy.append("Screenshots")
+            elif path_hierarchy[1] != "Screenshots":  # Has wrong subcategory
+                path_hierarchy[1] = "Screenshots"
+
+        # Debug output
+        print(f"Final path hierarchy for {filename}: {path_hierarchy}")
 
         return path_hierarchy
 
@@ -191,6 +200,8 @@ def get_directory_path(filename):
         path_hierarchy = [main_category]
         if sub_category:
             path_hierarchy.append(sub_category)
+            # Add debug print
+            print(f"Exception handler - File: {filename}, Category: {main_category}, Subcategory: {sub_category}")
         return path_hierarchy
 
 
