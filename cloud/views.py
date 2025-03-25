@@ -360,48 +360,40 @@ class GalleryListView(APIView):
 
 class DirectoryPathView(APIView):
     """View for getting directory information by path"""
-    
+
     permission_classes = [IsAuthenticated]
-    
+
     def get(self, request, format=None):
         """Get directory information by path"""
-        path = request.query_params.get('path', None)
+        path = request.query_params.get("path", None)
         if not path:
             return Response({"error": "Path parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         # Split the path into components
-        path_parts = path.strip('/').split('/')
-        
+        path_parts = path.strip("/").split("/")
+
         # Start from root level
         parent = None
         result = []
-        current_path = ''
-        
+        current_path = ""
+
         # For each path part, try to find the corresponding directory
         for part in path_parts:
-            current_path += (current_path and '/') + part
+            current_path += (current_path and "/") + part
             try:
                 # Find directory matching name and parent
-                directory = Directory.objects.get(
-                    owner=request.user, 
-                    name=part,
-                    parent=parent
-                )
-                
+                directory = Directory.objects.get(owner=request.user, name=part, parent=parent)
+
                 # Add to result list
-                result.append({
-                    'id': directory.id,
-                    'name': directory.name,
-                    'path': current_path
-                })
-                
+                result.append({"id": directory.id, "name": directory.name, "path": current_path})
+
                 # Update parent for next iteration
                 parent = directory
-                
+
             except Directory.DoesNotExist:
                 # If directory doesn't exist, return what we have so far
                 break
-        
+
         return Response(result)
 
 
@@ -414,7 +406,7 @@ class FileListView(APIView):
         """Get files owned by the authenticated user"""
         # Get optional query parameters
         parent_id = request.query_params.get("parent", None)
-        
+
         # Build the base queryset - filter by owner
         queryset = File.objects.filter(owner=request.user)
 
@@ -428,9 +420,9 @@ class FileListView(APIView):
         else:
             # Get files in root directory (parent=None)
             queryset = queryset.filter(parent=None)
-            
+
         # Optional: Sort files by name or created_at
-        queryset = queryset.order_by('name')
-        
+        queryset = queryset.order_by("name")
+
         serializer = FileSerializer(queryset, many=True, context={"request": request})
         return Response(serializer.data)
