@@ -15,7 +15,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from base.utils import log_admin
 from chats.models import Chat, Message
 
-from .models import FCMToken, GoogleToken, TestUserEmail, User
+from .models import FCMToken, GoogleToken, User
 from .serializers import FCMTokenSerializer, UserSerializer
 
 
@@ -75,14 +75,6 @@ class GoogleLogin(APIView):
         token_data = get_auth_tokens(code, f"{os.environ['CLIENT_HOST']}/api/auth/callback/google")
         data = jwt.decode(token_data["id_token"], options={"verify_signature": False})
         email = data["email"]
-        
-        # Check if email is from mariancollege.org domain or is an allowed test email
-        if not (email.endswith("@mariancollege.org") or TestUserEmail.is_allowed_test_email(email)):
-            return Response(
-                {"error": "Only @mariancollege.org email addresses and approved test emails are allowed."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
         name = data["name"]
         google_access_token = token_data["access_token"]
         google_refresh_token = token_data["refresh_token"]
