@@ -314,18 +314,12 @@ class GalleryListView(APIView):
         # Start building the queryset - filter by owner and categories
         queryset = File.objects.filter(category_query, owner=request.user)
 
-        # Debug: Print the SQL query and count
-        print(f"SQL Query: {queryset.query}")
-        print(f"Count: {queryset.count()}")
-
         # If no results found, try a more flexible query that checks if category contains these words
         if queryset.count() == 0:
             category_query = (
                 Q(category__icontains="picture") | Q(category__icontains="video") | Q(category__icontains="image")
             )
             queryset = File.objects.filter(category_query, owner=request.user)
-            print(f"Fallback SQL Query: {queryset.query}")
-            print(f"Fallback Count: {queryset.count()}")
 
         # Filter by parent directory if specified
         if parent_id:
@@ -336,9 +330,6 @@ class GalleryListView(APIView):
                 return Response({"error": "Parent directory not found"}, status=status.HTTP_404_NOT_FOUND)
         # Remove the else clause that was filtering to only root files
         # This way we return ALL media files when no parent is specified
-
-        # Add debug print to check final queryset
-        print(f"Final Count: {queryset.count()}")
 
         # If still no results found, return a more descriptive response
         if queryset.count() == 0:
