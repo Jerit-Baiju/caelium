@@ -24,24 +24,19 @@ class Directory(models.Model):
         return f"{self.name}"
 
 
-def file_upload_path(instance, filename):
-    """Determine upload path for encrypted files"""
-    return f"encrypted_files/{instance.id}/{filename}"
-
-
 class File(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="files")
     parent = models.ForeignKey(Directory, on_delete=models.CASCADE, null=True, blank=True, related_name="files")
-    content = models.FileField(upload_to=file_upload_path)
     size = models.BigIntegerField(default=0)
     mime_type = models.CharField(max_length=255, blank=True, null=True)
     encryption_key = models.TextField(blank=True, null=True)
     encryption_iv = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField()
     category = models.CharField(max_length=50, blank=True, null=True)
-    # removed modified_at as per requirement
+    # Google Drive specific fields
+    drive_file_id = models.CharField(max_length=255, blank=True, null=True)
 
     @property
     def path(self):
@@ -53,10 +48,14 @@ class File(models.Model):
         return f"{self.name}"
 
     def delete(self, *args, **kwargs):
-        # Delete the actual file when model is deleted
-        if self.content:
-            if os.path.isfile(self.content.path):
-                os.remove(self.content.path)
+        # If file is stored in Google Drive, delete it from there
+        if self.drive_file_id:
+            from cloud.google_drive import GoogleDriveStorage
+            try:
+                drive = GoogleDriveStorage()
+                drive.delete_file(self.drive_file_id)
+            except Exception as e:
+                print(f"Error deleting file from Google Drive: {e}")
         super().delete(*args, **kwargs)
 
 
