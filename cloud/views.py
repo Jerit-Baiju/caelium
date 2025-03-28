@@ -171,7 +171,6 @@ class FileUploadView(APIView):
             parent = self.create_or_get_directory(user, directory_name, parent)
         return parent
 
-    @transaction.atomic
     def post(self, request, format=None):
         """Handle POST request for multiple file uploads"""
         parent_dir_id = request.data.get("parent_directory") or request.data.get("parent")
@@ -194,60 +193,75 @@ class FileUploadView(APIView):
         drive = GoogleDriveStorage()
         
         for uploaded_file in files:
-            # Determine file category based on filename
-            main_category, sub_category = check_type(uploaded_file.name)
-            # Use the main category as the file category for database storage
-            category = main_category
+            try:
+                # Use smaller, targeted transactions for critical DB operations
+                # This allows other operations to proceed in between file uploads
+                
+                # Determine file category based on filename
+                main_category, sub_category = check_type(uploaded_file.name)
+                category = main_category
 
-            # Extract creation date from filename
-            file_date = extract_date_from_filename(uploaded_file.name)
+                # Extract creation date from filename
+                file_date = extract_date_from_filename(uploaded_file.name)
 
-            # Determine parent directory based on auto-organization
-            file_parent = parent_directory
-            if use_auto_organization:
-                # Get directory path hierarchy from filename
-                path_hierarchy = get_directory_path(uploaded_file.name)
-                if path_hierarchy:
-                    # Create directory hierarchy and use the leaf directory as parent
-                    file_parent = self.create_directory_hierarchy(request.user, path_hierarchy)
+                # Determine parent directory based on auto-organization
+                file_parent = parent_directory
+                if use_auto_organization:
+                    # Get directory path hierarchy from filename
+                    path_hierarchy = get_directory_path(uploaded_file.name)
+                    if path_hierarchy:
+                        # Create directory hierarchy and use the leaf directory as parent
+                        with transaction.atomic():
+                            file_parent = self.create_directory_hierarchy(request.user, path_hierarchy)
 
-            # Handle large file encryption
-            encryption_result = self.encrypt_large_file(uploaded_file)
+                # Handle large file encryption (non-database operation)
+                encryption_result = self.encrypt_large_file(uploaded_file)
 
-            # Create file record in database
-            file_obj = File(
-                name=uploaded_file.name,
-                owner=request.user,
-                parent=file_parent,
-                size=encryption_result["size"],
-                mime_type=uploaded_file.content_type or "application/octet-stream",
-                encryption_key=encryption_result["key"],
-                encryption_iv=encryption_result["iv"],
-                category=category,
-                created_at=file_date,
-            )
-            
-            # Save the file object to get an ID
-            file_obj.save()
-            
-            # Upload encrypted file to Google Drive
-            drive_file = drive.upload_file(
-                file_path=encryption_result["temp_file"],
-                file_name=uploaded_file.name,
-                mime_type="application/octet-stream",
-                file_id=str(file_obj.id)
-            )
-            
-            # Update file object with Google Drive file ID
-            file_obj.drive_file_id = drive_file['id']
-            file_obj.save()
-            
-            # Delete the temporary file
-            if os.path.exists(encryption_result["temp_file"]):
-                os.unlink(encryption_result["temp_file"])
-            
-            # Add the request context when creating the serializer
-            uploaded_files.append(FileSerializer(file_obj, context={"request": request}).data)
+                # Create initial file record with a short, targeted transaction
+                with transaction.atomic():
+                    # Create file record in database
+                    file_obj = File(
+                        name=uploaded_file.name,
+                        owner=request.user,
+                        parent=file_parent,
+                        size=encryption_result["size"],
+                        mime_type=uploaded_file.content_type or "application/octet-stream",
+                        encryption_key=encryption_result["key"],
+                        encryption_iv=encryption_result["iv"],
+                        category=category,
+                        created_at=file_date,
+                    )
+                    
+                    # Save the file object to get an ID
+                    file_obj.save()
+                
+                # Upload to Google Drive (non-database operation)
+                drive_file = drive.upload_file(
+                    file_path=encryption_result["temp_file"],
+                    file_name=uploaded_file.name,
+                    mime_type="application/octet-stream",
+                    file_id=str(file_obj.id)
+                )
+                
+                # Update file with Drive ID in a separate transaction
+                with transaction.atomic():
+                    # Get the most recent version of the file object
+                    file_obj = File.objects.get(id=file_obj.id)
+                    file_obj.drive_file_id = drive_file['id']
+                    file_obj.save()
+                
+                # Delete the temporary file
+                if os.path.exists(encryption_result["temp_file"]):
+                    os.unlink(encryption_result["temp_file"])
+                
+                # Add the request context when creating the serializer
+                uploaded_files.append(FileSerializer(file_obj, context={"request": request}).data)
+                
+            except Exception as e:
+                # Log the error
+                print(f"Error uploading file {uploaded_file.name}: {str(e)}")
+                # Continue with the next file instead of failing the entire request
+                continue
 
         return Response({"files": uploaded_files}, status=status.HTTP_201_CREATED)
 
