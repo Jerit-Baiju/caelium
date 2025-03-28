@@ -1,11 +1,13 @@
 import base64
 import secrets
+import os
+from io import BytesIO
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from django.core.files.base import ContentFile
 from django.db import transaction
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, StreamingHttpResponse
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -21,51 +23,73 @@ class FileDownloadView(APIView):
     """View for handling file downloads"""
 
     permission_classes = [IsAuthenticated]
+    # Buffer size: 10MB chunks for streaming
+    CHUNK_SIZE = 10 * 1024 * 1024
 
-    def decrypt_file(self, encrypted_data, key, iv):
-        """Decrypt file data with AES-256 in CBC mode"""
-        # Decode key and IV from base64
-        key_bytes = base64.b64decode(key)
-        iv_bytes = base64.b64decode(iv)
-
-        # Create AES cipher
-        cipher = Cipher(algorithms.AES(key_bytes), modes.CBC(iv_bytes), backend=default_backend())
+    def decrypt_chunk(self, chunk, key_bytes, iv_bytes, counter):
+        """Decrypt a single chunk with AES-256 in CTR mode"""
+        # CTR mode uses a counter that increases for each chunk
+        # This allows us to decrypt chunks independently at any position
+        cipher = Cipher(
+            algorithms.AES(key_bytes),
+            modes.CTR(iv_bytes + counter.to_bytes(4, byteorder='big')),
+            backend=default_backend()
+        )
         decryptor = cipher.decryptor()
+        return decryptor.update(chunk) + decryptor.finalize()
 
-        # Decrypt data
-        decrypted_padded_data = decryptor.update(encrypted_data) + decryptor.finalize()
-
-        # Remove padding
-        padding_length = decrypted_padded_data[-1]
-        decrypted_data = decrypted_padded_data[:-padding_length]
-
-        return decrypted_data
+    def decrypt_file_stream(self, file_obj):
+        """Generator to stream decrypt file data in chunks"""
+        # Decode key and IV from base64
+        key_bytes = base64.b64decode(file_obj.encryption_key)
+        iv_bytes = base64.b64decode(file_obj.encryption_iv)
+        
+        # For CTR mode, we use a 12-byte nonce + 4-byte counter
+        # Starting counter at 0
+        counter = 0
+        
+        # Stream the file in chunks
+        file_obj.content.open('rb')
+        while True:
+            chunk = file_obj.content.read(self.CHUNK_SIZE)
+            if not chunk:
+                break
+            
+            # Decrypt the chunk
+            decrypted_chunk = self.decrypt_chunk(chunk, key_bytes, iv_bytes, counter)
+            yield decrypted_chunk
+            
+            # Increment counter for next chunk
+            counter += 1
+        
+        file_obj.content.close()
 
     def get(self, request, pk, format=None):
-        """Handle GET request for file download"""
+        """Handle GET request for file download with streaming"""
         try:
             # Get the file by UUID
             file_obj = File.objects.get(id=pk, owner=request.user)
         except File.DoesNotExist:
             raise Http404("File not found")
 
-        # Return the file with decryption
-        if file_obj.content:
-            # Read the encrypted data
-            encrypted_data = file_obj.content.read()
+        # Check if file exists
+        if not file_obj.content:
+            raise Http404("File content not found")
 
-            # Decrypt the file data
-            decrypted_data = self.decrypt_file(encrypted_data, file_obj.encryption_key, file_obj.encryption_iv)
+        # Create streaming response with decrypted data
+        response = StreamingHttpResponse(
+            self.decrypt_file_stream(file_obj),
+            content_type=file_obj.mime_type or "application/octet-stream"
+        )
 
-            # Create response with decrypted data
-            response = HttpResponse(decrypted_data, content_type=file_obj.mime_type or "application/octet-stream")
+        # Set content disposition to attachment with the original filename
+        response["Content-Disposition"] = f'attachment; filename="{file_obj.name}"'
+        
+        # Set Content-Length if known
+        if file_obj.size:
+            response['Content-Length'] = file_obj.size
 
-            # Set content disposition to attachment with the original filename
-            response["Content-Disposition"] = f'attachment; filename="{file_obj.name}"'
-
-            return response
-
-        raise Http404("File content not found")
+        return response
 
 
 class FileUploadView(APIView):
@@ -73,35 +97,61 @@ class FileUploadView(APIView):
 
     parser_classes = [MultiPartParser, FormParser]
     permission_classes = [IsAuthenticated]
+    # Buffer size: 10MB chunks for processing
+    CHUNK_SIZE = 10 * 1024 * 1024
 
-    def encrypt_file(self, file_data):
-        """Encrypt file data with AES-256 in CBC mode"""
+    def encrypt_large_file(self, uploaded_file):
+        """Process large file encryption in chunks using AES-256 CTR mode"""
         # Generate a secure random 256-bit (32-byte) key for AES-256
         key = secrets.token_bytes(32)
-        # Generate a secure random 128-bit (16-byte) initialization vector for CBC mode
-        iv = secrets.token_bytes(16)
-
-        # Create AES cipher
-        cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
-        encryptor = cipher.encryptor()
-
-        # Pad data to block size (16 bytes for AES)
-        block_size = 16
-        padding_length = block_size - (len(file_data) % block_size)
-        if padding_length == 0:
-            padding_length = block_size
-        padding = bytes([padding_length]) * padding_length
-        padded_data = file_data + padding
-
-        # Encrypt data
-        encrypted_data = encryptor.update(padded_data) + encryptor.finalize()
-
-        # Return the encrypted data and encryption parameters
-        return {
-            "data": encrypted_data,
-            "key": base64.b64encode(key).decode("utf-8"),
-            "iv": base64.b64encode(iv).decode("utf-8"),
-        }
+        # Generate a secure random 96-bit (12-byte) nonce for CTR mode
+        # (Counter will be the remaining 4 bytes, starting at 0)
+        iv = secrets.token_bytes(12)
+        
+        # Create a temporary file to store encrypted content
+        import tempfile
+        temp_encrypted = tempfile.NamedTemporaryFile(delete=False)
+        
+        # Track file size
+        file_size = 0
+        counter = 0
+        
+        try:
+            # Process the file in chunks
+            for chunk in uploaded_file.chunks(self.CHUNK_SIZE):
+                # Update file size
+                file_size += len(chunk)
+                
+                # Create CTR cipher for this chunk
+                cipher = Cipher(
+                    algorithms.AES(key),
+                    modes.CTR(iv + counter.to_bytes(4, byteorder='big')),
+                    backend=default_backend()
+                )
+                encryptor = cipher.encryptor()
+                
+                # Encrypt the chunk and write to temp file
+                encrypted_chunk = encryptor.update(chunk) + encryptor.finalize()
+                temp_encrypted.write(encrypted_chunk)
+                
+                # Increment counter for next chunk
+                counter += 1
+                
+            temp_encrypted.close()
+            
+            # Return the temp file path and encryption params
+            return {
+                "temp_file": temp_encrypted.name,
+                "size": file_size,
+                "key": base64.b64encode(key).decode("utf-8"),
+                "iv": base64.b64encode(iv).decode("utf-8"),
+            }
+        except Exception as e:
+            # Clean up temp file in case of errors
+            temp_encrypted.close()
+            if os.path.exists(temp_encrypted.name):
+                os.unlink(temp_encrypted.name)
+            raise e
 
     def create_or_get_directory(self, user, directory_name, parent=None):
         """Create a directory if it doesn't exist or get it if it does"""
@@ -140,13 +190,6 @@ class FileUploadView(APIView):
 
         uploaded_files = []
         for uploaded_file in files:
-            # Read file data
-            file_data = uploaded_file.read()
-
-            # Get file size and mime type
-            file_size = len(file_data)
-            mime_type = uploaded_file.content_type or "application/octet-stream"
-
             # Determine file category based on filename
             main_category, sub_category = check_type(uploaded_file.name)
             # Use the main category as the file category for database storage
@@ -164,26 +207,33 @@ class FileUploadView(APIView):
                     # Create directory hierarchy and use the leaf directory as parent
                     file_parent = self.create_directory_hierarchy(request.user, path_hierarchy)
 
-            # Encrypt the file
-            encryption_result = self.encrypt_file(file_data)
+            # Handle large file encryption
+            encryption_result = self.encrypt_large_file(uploaded_file)
 
             # Create file record in database
             file_obj = File(
                 name=uploaded_file.name,
                 owner=request.user,
                 parent=file_parent,
-                size=file_size,
-                mime_type=mime_type,
+                size=encryption_result["size"],
+                mime_type=uploaded_file.content_type or "application/octet-stream",
                 encryption_key=encryption_result["key"],
                 encryption_iv=encryption_result["iv"],
                 category=category,
-                created_at=file_date,  # Set the creation date based on filename
+                created_at=file_date,
             )
-
-            # Save the file with encrypted content
-            file_obj.content.save(uploaded_file.name, ContentFile(encryption_result["data"]), save=False)
-
+            
+            # Save the file object first without content to get an ID
             file_obj.save()
+            
+            # Now attach the content from the temp file
+            with open(encryption_result["temp_file"], 'rb') as temp_file:
+                file_obj.content.save(uploaded_file.name, ContentFile(temp_file.read()), save=True)
+            
+            # Delete the temporary file
+            if os.path.exists(encryption_result["temp_file"]):
+                os.unlink(encryption_result["temp_file"])
+            
             # Add the request context when creating the serializer
             uploaded_files.append(FileSerializer(file_obj, context={"request": request}).data)
 
