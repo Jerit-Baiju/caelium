@@ -17,6 +17,7 @@ from rest_framework.views import APIView
 from cloud.models import Directory, File
 from cloud.serializers import DirectorySerializer, FileSerializer
 from cloud.utils import check_type, extract_date_from_filename, get_directory_path
+from cloud.google_drive import GoogleDriveStorage
 
 
 class FileDownloadView(APIView):
@@ -48,10 +49,13 @@ class FileDownloadView(APIView):
         # Starting counter at 0
         counter = 0
         
-        # Stream the file in chunks
-        file_obj.content.open('rb')
+        # Get file from Google Drive
+        drive = GoogleDriveStorage()
+        file_content = drive.download_file(file_obj.drive_file_id)
+        
+        # Process file in chunks
         while True:
-            chunk = file_obj.content.read(self.CHUNK_SIZE)
+            chunk = file_content.read(self.CHUNK_SIZE)
             if not chunk:
                 break
             
@@ -61,8 +65,6 @@ class FileDownloadView(APIView):
             
             # Increment counter for next chunk
             counter += 1
-        
-        file_obj.content.close()
 
     def get(self, request, pk, format=None):
         """Handle GET request for file download with streaming"""
@@ -72,8 +74,8 @@ class FileDownloadView(APIView):
         except File.DoesNotExist:
             raise Http404("File not found")
 
-        # Check if file exists
-        if not file_obj.content:
+        # Check if file exists in Google Drive
+        if not file_obj.drive_file_id:
             raise Http404("File content not found")
 
         # Create streaming response with decrypted data
@@ -189,6 +191,8 @@ class FileUploadView(APIView):
             return Response({"error": "No files provided"}, status=status.HTTP_400_BAD_REQUEST)
 
         uploaded_files = []
+        drive = GoogleDriveStorage()
+        
         for uploaded_file in files:
             # Determine file category based on filename
             main_category, sub_category = check_type(uploaded_file.name)
@@ -223,12 +227,20 @@ class FileUploadView(APIView):
                 created_at=file_date,
             )
             
-            # Save the file object first without content to get an ID
+            # Save the file object to get an ID
             file_obj.save()
             
-            # Now attach the content from the temp file
-            with open(encryption_result["temp_file"], 'rb') as temp_file:
-                file_obj.content.save(uploaded_file.name, ContentFile(temp_file.read()), save=True)
+            # Upload encrypted file to Google Drive
+            drive_file = drive.upload_file(
+                file_path=encryption_result["temp_file"],
+                file_name=uploaded_file.name,
+                mime_type="application/octet-stream",
+                file_id=str(file_obj.id)
+            )
+            
+            # Update file object with Google Drive file ID
+            file_obj.drive_file_id = drive_file['id']
+            file_obj.save()
             
             # Delete the temporary file
             if os.path.exists(encryption_result["temp_file"]):
