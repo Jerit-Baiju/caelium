@@ -10,8 +10,8 @@ class GoogleDriveStorage:
     
     # Google Drive folder ID for storing files
     # TODO: Move this to environment variables
-    DRIVE_FOLDER_ID = "10f0aTJ07bI5MFeG93UEQHPPsYRMFeeGL"
-    
+    DRIVE_FOLDER_ID = os.environ['DRIVE_FOLDER_ID']
+
     def __init__(self):
         """Initialize Google Drive API client"""
         self.service = self._get_drive_service()
