@@ -37,6 +37,15 @@ class File(models.Model):
     category = models.CharField(max_length=50, blank=True, null=True)
     # Google Drive specific fields
     drive_file_id = models.CharField(max_length=255, blank=True, null=True)
+    upload_status = models.CharField(
+        max_length=20, 
+        choices=[
+            ('pending', 'Pending'),
+            ('completed', 'Completed'),
+            ('failed', 'Failed')
+        ],
+        default='completed'
+    )
 
     @property
     def path(self):

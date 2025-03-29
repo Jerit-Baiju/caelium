@@ -13,6 +13,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+import threading
 
 from cloud.models import Directory, File
 from cloud.serializers import DirectorySerializer, FileSerializer, BreadcrumbSerializer
@@ -170,6 +171,49 @@ class FileUploadView(APIView):
         for directory_name in path_hierarchy:
             parent = self.create_or_get_directory(user, directory_name, parent)
         return parent
+    
+    @staticmethod
+    def upload_to_drive_in_background(file_id, temp_file_path, file_name):
+        """Upload encrypted file to Google Drive in the background"""
+        try:
+            drive = GoogleDriveStorage()
+            drive_file = drive.upload_file(
+                file_path=temp_file_path,
+                file_name=file_name,
+                mime_type="application/octet-stream",
+                file_id=str(file_id)
+            )
+            
+            # Update file with Drive ID in a separate transaction
+            with transaction.atomic():
+                file_obj = File.objects.get(id=file_id)
+                file_obj.drive_file_id = drive_file['id']
+                file_obj.upload_status = "completed"
+                file_obj.save()
+                
+            # Delete the temporary file
+            if os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
+                
+        except Exception as e:
+            # Handle errors - update file status to reflect failure
+            try:
+                with transaction.atomic():
+                    file_obj = File.objects.get(id=file_id)
+                    file_obj.upload_status = "failed"
+                    file_obj.save()
+            except:
+                pass
+                
+            # Clean up temporary file on error
+            if os.path.exists(temp_file_path):
+                try:
+                    os.unlink(temp_file_path)
+                except:
+                    pass
+                    
+            # Log the error
+            print(f"Error uploading file to Google Drive: {str(e)}")
 
     def post(self, request, format=None):
         """Handle POST request for multiple file uploads"""
@@ -190,13 +234,9 @@ class FileUploadView(APIView):
             return Response({"error": "No files provided"}, status=status.HTTP_400_BAD_REQUEST)
 
         uploaded_files = []
-        drive = GoogleDriveStorage()
         
         for uploaded_file in files:
             try:
-                # Use smaller, targeted transactions for critical DB operations
-                # This allows other operations to proceed in between file uploads
-                
                 # Determine file category based on filename
                 main_category, sub_category = check_type(uploaded_file.name)
                 category = main_category
@@ -217,9 +257,8 @@ class FileUploadView(APIView):
                 # Handle large file encryption (non-database operation)
                 encryption_result = self.encrypt_large_file(uploaded_file)
 
-                # Create initial file record with a short, targeted transaction
+                # Create file record in database
                 with transaction.atomic():
-                    # Create file record in database
                     file_obj = File(
                         name=uploaded_file.name,
                         owner=request.user,
@@ -230,36 +269,27 @@ class FileUploadView(APIView):
                         encryption_iv=encryption_result["iv"],
                         category=category,
                         created_at=file_date,
+                        upload_status="pending"  # Mark as pending until Google Drive upload completes
                     )
                     
                     # Save the file object to get an ID
                     file_obj.save()
                 
-                # Upload to Google Drive (non-database operation)
-                drive_file = drive.upload_file(
-                    file_path=encryption_result["temp_file"],
-                    file_name=uploaded_file.name,
-                    mime_type="application/octet-stream",
-                    file_id=str(file_obj.id)
+                # Start Google Drive upload in background thread
+                temp_file_path = encryption_result["temp_file"]
+                thread = threading.Thread(
+                    target=self.upload_to_drive_in_background,
+                    args=(file_obj.id, temp_file_path, uploaded_file.name)
                 )
+                thread.daemon = True  # Allow the thread to be terminated when main thread exits
+                thread.start()
                 
-                # Update file with Drive ID in a separate transaction
-                with transaction.atomic():
-                    # Get the most recent version of the file object
-                    file_obj = File.objects.get(id=file_obj.id)
-                    file_obj.drive_file_id = drive_file['id']
-                    file_obj.save()
-                
-                # Delete the temporary file
-                if os.path.exists(encryption_result["temp_file"]):
-                    os.unlink(encryption_result["temp_file"])
-                
-                # Add the request context when creating the serializer
+                # Add the file to response immediately
                 uploaded_files.append(FileSerializer(file_obj, context={"request": request}).data)
                 
             except Exception as e:
                 # Log the error
-                print(f"Error uploading file {uploaded_file.name}: {str(e)}")
+                print(f"Error processing file {uploaded_file.name}: {str(e)}")
                 # Continue with the next file instead of failing the entire request
                 continue
 
