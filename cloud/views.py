@@ -15,7 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from cloud.models import Directory, File
-from cloud.serializers import DirectorySerializer, FileSerializer
+from cloud.serializers import DirectorySerializer, FileSerializer, BreadcrumbSerializer
 from cloud.utils import check_type, extract_date_from_filename, get_directory_path
 from cloud.google_drive import GoogleDriveStorage
 
@@ -266,107 +266,6 @@ class FileUploadView(APIView):
         return Response({"files": uploaded_files}, status=status.HTTP_201_CREATED)
 
 
-class DirectoryListView(APIView):
-    """View for listing and creating directories"""
-
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, format=None):
-        """Get directories owned by the authenticated user"""
-        # Get optional query parameters
-        parent_id = request.query_params.get("parent", None)
-
-        # Filter by parent directory if specified
-        if parent_id:
-            try:
-                parent = Directory.objects.get(id=parent_id, owner=request.user)
-                directories = Directory.objects.filter(owner=request.user, parent=parent)
-            except Directory.DoesNotExist:
-                return Response({"error": "Parent directory not found"}, status=status.HTTP_404_NOT_FOUND)
-        else:
-            # Get directories in root directory (parent=None)
-            directories = Directory.objects.filter(owner=request.user, parent=None)
-
-        serializer = DirectorySerializer(directories, many=True)
-        return Response(serializer.data)
-
-    def post(self, request, format=None):
-        """Create a new directory"""
-        serializer = DirectorySerializer(data=request.data)
-        if serializer.is_valid():
-            # Ensure that the owner is the authenticated user
-            serializer.validated_data["owner"] = request.user
-
-            # If parent is specified, ensure it exists and belongs to the user
-            parent_id = serializer.validated_data.get("parent", None)
-            if parent_id:
-                try:
-                    parent = Directory.objects.get(id=parent_id, owner=request.user)
-                    serializer.validated_data["parent"] = parent
-                except Directory.DoesNotExist:
-                    return Response({"error": "Parent directory not found"}, status=status.HTTP_404_NOT_FOUND)
-
-            # Save the directory
-            directory = serializer.save()
-            return Response(DirectorySerializer(directory).data, status=status.HTTP_201_CREATED)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class DirectoryDetailView(APIView):
-    """View for retrieving, updating, and deleting directories"""
-
-    permission_classes = [IsAuthenticated]
-
-    def get_object(self, pk):
-        try:
-            return Directory.objects.get(pk=pk, owner=self.request.user)
-        except Directory.DoesNotExist:
-            raise Http404
-
-    def get(self, request, pk, format=None):
-        """Get details of a specific directory"""
-        directory = self.get_object(pk)
-        serializer = DirectorySerializer(directory)
-        return Response(serializer.data)
-
-    def put(self, request, pk, format=None):
-        """Update a directory"""
-        directory = self.get_object(pk)
-        serializer = DirectorySerializer(directory, data=request.data, partial=True)
-
-        if serializer.is_valid():
-            # If parent is being updated, ensure it exists and belongs to the user
-            parent_id = serializer.validated_data.get("parent", None)
-            if parent_id and parent_id != directory.parent:
-                try:
-                    parent = Directory.objects.get(id=parent_id, owner=request.user)
-
-                    # Check for circular reference
-                    if pk == parent_id:
-                        return Response(
-                            {"error": "A directory cannot be its own parent"}, status=status.HTTP_400_BAD_REQUEST
-                        )
-
-                    # TODO: Add more checks to prevent circular references in the directory tree
-                    serializer.validated_data["parent"] = parent
-                except Directory.DoesNotExist:
-                    return Response({"error": "Parent directory not found"}, status=status.HTTP_404_NOT_FOUND)
-
-            directory = serializer.save()
-            return Response(DirectorySerializer(directory).data)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def delete(self, request, pk, format=None):
-        """Delete a directory and all its contents"""
-        directory = self.get_object(pk)
-
-        # Recursively delete all contents
-        directory.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-
 class GalleryListView(APIView):
     """View for listing media files (images and videos) for the authenticated user"""
 
@@ -425,71 +324,82 @@ class GalleryListView(APIView):
         return Response(serializer.data)
 
 
-class DirectoryPathView(APIView):
-    """View for getting directory information by path"""
+class ExplorerView(APIView):
+    """View for listing both directories and files together with breadcrumbs"""
 
     permission_classes = [IsAuthenticated]
 
-    def get(self, request, format=None):
-        """Get directory information by path"""
-        path = request.query_params.get("path", None)
-        if not path:
-            return Response({"error": "Path parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Split the path into components
-        path_parts = path.strip("/").split("/")
-
-        # Start from root level
-        parent = None
-        result = []
-        current_path = ""
-
-        # For each path part, try to find the corresponding directory
-        for part in path_parts:
-            current_path += (current_path and "/") + part
-            try:
-                # Find directory matching name and parent
-                directory = Directory.objects.get(owner=request.user, name=part, parent=parent)
-
-                # Add to result list
-                result.append({"id": directory.id, "name": directory.name, "path": current_path})
-
-                # Update parent for next iteration
-                parent = directory
-
-            except Directory.DoesNotExist:
-                # If directory doesn't exist, return what we have so far
-                break
-
-        return Response(result)
-
-
-class FileListView(APIView):
-    """View for listing files"""
-
-    permission_classes = [IsAuthenticated]
+    def get_breadcrumbs(self, directory):
+        """
+        Generate a breadcrumb trail for navigation
+        Returns a list of directories from root to the current directory
+        """
+        breadcrumbs = []
+        current = directory
+        
+        # Traverse up the directory tree to build breadcrumbs
+        while current:
+            breadcrumbs.insert(0, current)
+            current = current.parent
+            
+        return breadcrumbs
 
     def get(self, request, format=None):
-        """Get files owned by the authenticated user"""
-        # Get optional query parameters
+        """Get both directories and files with optional parent filter"""
+        # Get optional query parameter
         parent_id = request.query_params.get("parent", None)
-
-        # Build the base queryset - filter by owner
-        queryset = File.objects.filter(owner=request.user)
-
+        
+        # Initialize breadcrumbs as an empty list (for root directory)
+        breadcrumbs = []
+        current_directory = None
+        
         # Filter by parent directory if specified
         if parent_id:
             try:
-                parent = Directory.objects.get(id=parent_id, owner=request.user)
-                queryset = queryset.filter(parent=parent)
+                current_directory = Directory.objects.get(id=parent_id, owner=request.user)
+                directories = Directory.objects.filter(owner=request.user, parent=current_directory)
+                files = File.objects.filter(owner=request.user, parent=current_directory)
+                
+                # Generate breadcrumbs for the current directory
+                breadcrumbs = self.get_breadcrumbs(current_directory)
             except Directory.DoesNotExist:
                 return Response({"error": "Parent directory not found"}, status=status.HTTP_404_NOT_FOUND)
         else:
-            # Get files in root directory (parent=None)
-            queryset = queryset.filter(parent=None)
+            # Get directories and files in root directory (parent=None)
+            directories = Directory.objects.filter(owner=request.user, parent=None)
+            files = File.objects.filter(owner=request.user, parent=None)
+        
+        # Serialize the data
+        directory_serializer = DirectorySerializer(directories, many=True)
+        file_serializer = FileSerializer(files, many=True, context={"request": request})
+        breadcrumb_serializer = BreadcrumbSerializer(breadcrumbs, many=True)
+        
+        # Return combined response
+        return Response({
+            "directories": directory_serializer.data,
+            "files": file_serializer.data,
+            "breadcrumbs": breadcrumb_serializer.data,
+            "current_directory": BreadcrumbSerializer(current_directory).data if current_directory else None
+        })
+        
+    def post(self, request, format=None):
+        """Create a new directory"""
+        serializer = DirectorySerializer(data=request.data)
+        if serializer.is_valid():
+            # Ensure that the owner is the authenticated user
+            serializer.validated_data["owner"] = request.user
 
-        # Optional: Sort files by name or created_at
-        queryset = queryset.order_by("name")
+            # If parent is specified, ensure it exists and belongs to the user
+            parent_id = serializer.validated_data.get("parent", None)
+            if parent_id:
+                try:
+                    parent = Directory.objects.get(id=parent_id, owner=request.user)
+                    serializer.validated_data["parent"] = parent
+                except Directory.DoesNotExist:
+                    return Response({"error": "Parent directory not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = FileSerializer(queryset, many=True, context={"request": request})
-        return Response(serializer.data)
+            # Save the directory
+            directory = serializer.save()
+            return Response(DirectorySerializer(directory).data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

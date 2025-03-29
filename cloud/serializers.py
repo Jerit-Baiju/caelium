@@ -18,7 +18,6 @@ class FileSerializer(serializers.ModelSerializer):
     owner_details = UserSerializer(source="owner", read_only=True)
     path = serializers.ReadOnlyField()
     download_url = serializers.SerializerMethodField()
-    preview_url = serializers.SerializerMethodField()
 
     class Meta:
         model = File
@@ -33,7 +32,6 @@ class FileSerializer(serializers.ModelSerializer):
             "size",
             "mime_type",
             "download_url",
-            "preview_url",
             "category",
             "drive_file_id"
         ]
@@ -45,7 +43,6 @@ class FileSerializer(serializers.ModelSerializer):
             "encryption_key",
             "encryption_iv",
             "download_url",
-            "preview_url",
             "category",
             "drive_file_id"
         ]
@@ -60,19 +57,7 @@ class FileSerializer(serializers.ModelSerializer):
             return None
 
         # Ensure we're using the correct format for UUID
-        return f"{request.build_absolute_uri('/api/cloud/files/')}{obj.id}/download/"
-
-    def get_preview_url(self, obj):
-        # Only provide preview URL for image files
-        if not obj.mime_type or not obj.mime_type.startswith("image/"):
-            return None
-
-        request = self.context.get("request")
-        if request is None:
-            return None
-
-        # Use the same download URL for preview
-        return f"{request.build_absolute_uri('/api/cloud/files/')}{obj.id}/download/"
+        return f"{request.build_absolute_uri('/api/cloud/files/')}{obj.id}/download/"  
 
 
 class SharedItemSerializer(serializers.ModelSerializer):
@@ -94,3 +79,10 @@ class SharedItemSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]
+
+
+class BreadcrumbSerializer(serializers.ModelSerializer):
+    """Serializer for directory breadcrumb navigation"""
+    class Meta:
+        model = Directory
+        fields = ["id", "name", "parent"]
