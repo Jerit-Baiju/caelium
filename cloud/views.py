@@ -1,24 +1,22 @@
 import base64
-import secrets
 import os
-from io import BytesIO
+import secrets
+import threading
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from django.core.files.base import ContentFile
 from django.db import transaction
-from django.http import Http404, HttpResponse, StreamingHttpResponse
+from django.http import Http404, StreamingHttpResponse
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-import threading
 
-from cloud.models import Directory, File
-from cloud.serializers import DirectorySerializer, FileSerializer, BreadcrumbSerializer
-from cloud.utils import check_type, extract_date_from_filename, get_directory_path
 from cloud.google_drive import GoogleDriveStorage
+from cloud.models import Directory, File
+from cloud.serializers import BreadcrumbSerializer, DirectorySerializer, FileSerializer
+from cloud.utils import check_type, extract_date_from_filename, get_directory_path
 
 
 class FileDownloadView(APIView):
@@ -33,9 +31,7 @@ class FileDownloadView(APIView):
         # CTR mode uses a counter that increases for each chunk
         # This allows us to decrypt chunks independently at any position
         cipher = Cipher(
-            algorithms.AES(key_bytes),
-            modes.CTR(iv_bytes + counter.to_bytes(4, byteorder='big')),
-            backend=default_backend()
+            algorithms.AES(key_bytes), modes.CTR(iv_bytes + counter.to_bytes(4, byteorder="big")), backend=default_backend()
         )
         decryptor = cipher.decryptor()
         return decryptor.update(chunk) + decryptor.finalize()
@@ -45,25 +41,25 @@ class FileDownloadView(APIView):
         # Decode key and IV from base64
         key_bytes = base64.b64decode(file_obj.encryption_key)
         iv_bytes = base64.b64decode(file_obj.encryption_iv)
-        
+
         # For CTR mode, we use a 12-byte nonce + 4-byte counter
         # Starting counter at 0
         counter = 0
-        
+
         # Get file from Google Drive
         drive = GoogleDriveStorage()
         file_content = drive.download_file(file_obj.drive_file_id)
-        
+
         # Process file in chunks
         while True:
             chunk = file_content.read(self.CHUNK_SIZE)
             if not chunk:
                 break
-            
+
             # Decrypt the chunk
             decrypted_chunk = self.decrypt_chunk(chunk, key_bytes, iv_bytes, counter)
             yield decrypted_chunk
-            
+
             # Increment counter for next chunk
             counter += 1
 
@@ -81,16 +77,15 @@ class FileDownloadView(APIView):
 
         # Create streaming response with decrypted data
         response = StreamingHttpResponse(
-            self.decrypt_file_stream(file_obj),
-            content_type=file_obj.mime_type or "application/octet-stream"
+            self.decrypt_file_stream(file_obj), content_type=file_obj.mime_type or "application/octet-stream"
         )
 
         # Set content disposition to attachment with the original filename
         response["Content-Disposition"] = f'attachment; filename="{file_obj.name}"'
-        
+
         # Set Content-Length if known
         if file_obj.size:
-            response['Content-Length'] = file_obj.size
+            response["Content-Length"] = file_obj.size
 
         return response
 
@@ -110,38 +105,37 @@ class FileUploadView(APIView):
         # Generate a secure random 96-bit (12-byte) nonce for CTR mode
         # (Counter will be the remaining 4 bytes, starting at 0)
         iv = secrets.token_bytes(12)
-        
+
         # Create a temporary file to store encrypted content
         import tempfile
+
         temp_encrypted = tempfile.NamedTemporaryFile(delete=False)
-        
+
         # Track file size
         file_size = 0
         counter = 0
-        
+
         try:
             # Process the file in chunks
             for chunk in uploaded_file.chunks(self.CHUNK_SIZE):
                 # Update file size
                 file_size += len(chunk)
-                
+
                 # Create CTR cipher for this chunk
                 cipher = Cipher(
-                    algorithms.AES(key),
-                    modes.CTR(iv + counter.to_bytes(4, byteorder='big')),
-                    backend=default_backend()
+                    algorithms.AES(key), modes.CTR(iv + counter.to_bytes(4, byteorder="big")), backend=default_backend()
                 )
                 encryptor = cipher.encryptor()
-                
+
                 # Encrypt the chunk and write to temp file
                 encrypted_chunk = encryptor.update(chunk) + encryptor.finalize()
                 temp_encrypted.write(encrypted_chunk)
-                
+
                 # Increment counter for next chunk
                 counter += 1
-                
+
             temp_encrypted.close()
-            
+
             # Return the temp file path and encryption params
             return {
                 "temp_file": temp_encrypted.name,
@@ -171,30 +165,27 @@ class FileUploadView(APIView):
         for directory_name in path_hierarchy:
             parent = self.create_or_get_directory(user, directory_name, parent)
         return parent
-    
+
     @staticmethod
     def upload_to_drive_in_background(file_id, temp_file_path, file_name):
         """Upload encrypted file to Google Drive in the background"""
         try:
             drive = GoogleDriveStorage()
             drive_file = drive.upload_file(
-                file_path=temp_file_path,
-                file_name=file_name,
-                mime_type="application/octet-stream",
-                file_id=str(file_id)
+                file_path=temp_file_path, file_name=file_name, mime_type="application/octet-stream", file_id=str(file_id)
             )
-            
+
             # Update file with Drive ID in a separate transaction
             with transaction.atomic():
                 file_obj = File.objects.get(id=file_id)
-                file_obj.drive_file_id = drive_file['id']
+                file_obj.drive_file_id = drive_file["id"]
                 file_obj.upload_status = "completed"
                 file_obj.save()
-                
+
             # Delete the temporary file
             if os.path.exists(temp_file_path):
                 os.unlink(temp_file_path)
-                
+
         except Exception as e:
             # Handle errors - update file status to reflect failure
             try:
@@ -204,14 +195,14 @@ class FileUploadView(APIView):
                     file_obj.save()
             except:
                 pass
-                
+
             # Clean up temporary file on error
             if os.path.exists(temp_file_path):
                 try:
                     os.unlink(temp_file_path)
                 except:
                     pass
-                    
+
             # Log the error
             print(f"Error uploading file to Google Drive: {str(e)}")
 
@@ -234,7 +225,7 @@ class FileUploadView(APIView):
             return Response({"error": "No files provided"}, status=status.HTTP_400_BAD_REQUEST)
 
         uploaded_files = []
-        
+
         for uploaded_file in files:
             try:
                 # Determine file category based on filename
@@ -269,24 +260,23 @@ class FileUploadView(APIView):
                         encryption_iv=encryption_result["iv"],
                         category=category,
                         created_at=file_date,
-                        upload_status="pending"  # Mark as pending until Google Drive upload completes
+                        upload_status="pending",  # Mark as pending until Google Drive upload completes
                     )
-                    
+
                     # Save the file object to get an ID
                     file_obj.save()
-                
+
                 # Start Google Drive upload in background thread
                 temp_file_path = encryption_result["temp_file"]
                 thread = threading.Thread(
-                    target=self.upload_to_drive_in_background,
-                    args=(file_obj.id, temp_file_path, uploaded_file.name)
+                    target=self.upload_to_drive_in_background, args=(file_obj.id, temp_file_path, uploaded_file.name)
                 )
                 thread.daemon = True  # Allow the thread to be terminated when main thread exits
                 thread.start()
-                
+
                 # Add the file to response immediately
                 uploaded_files.append(FileSerializer(file_obj, context={"request": request}).data)
-                
+
             except Exception as e:
                 # Log the error
                 print(f"Error processing file {uploaded_file.name}: {str(e)}")
@@ -366,30 +356,30 @@ class ExplorerView(APIView):
         """
         breadcrumbs = []
         current = directory
-        
+
         # Traverse up the directory tree to build breadcrumbs
         while current:
             breadcrumbs.insert(0, current)
             current = current.parent
-            
+
         return breadcrumbs
 
     def get(self, request, format=None):
         """Get both directories and files with optional parent filter"""
         # Get optional query parameter
         parent_id = request.query_params.get("parent", None)
-        
+
         # Initialize breadcrumbs as an empty list (for root directory)
         breadcrumbs = []
         current_directory = None
-        
+
         # Filter by parent directory if specified
         if parent_id:
             try:
                 current_directory = Directory.objects.get(id=parent_id, owner=request.user)
                 directories = Directory.objects.filter(owner=request.user, parent=current_directory)
                 files = File.objects.filter(owner=request.user, parent=current_directory)
-                
+
                 # Generate breadcrumbs for the current directory
                 breadcrumbs = self.get_breadcrumbs(current_directory)
             except Directory.DoesNotExist:
@@ -398,20 +388,22 @@ class ExplorerView(APIView):
             # Get directories and files in root directory (parent=None)
             directories = Directory.objects.filter(owner=request.user, parent=None)
             files = File.objects.filter(owner=request.user, parent=None)
-        
+
         # Serialize the data
         directory_serializer = DirectorySerializer(directories, many=True)
         file_serializer = FileSerializer(files, many=True, context={"request": request})
         breadcrumb_serializer = BreadcrumbSerializer(breadcrumbs, many=True)
-        
+
         # Return combined response
-        return Response({
-            "directories": directory_serializer.data,
-            "files": file_serializer.data,
-            "breadcrumbs": breadcrumb_serializer.data,
-            "current_directory": BreadcrumbSerializer(current_directory).data if current_directory else None
-        })
-        
+        return Response(
+            {
+                "directories": directory_serializer.data,
+                "files": file_serializer.data,
+                "breadcrumbs": breadcrumb_serializer.data,
+                "current_directory": BreadcrumbSerializer(current_directory).data if current_directory else None,
+            }
+        )
+
     def post(self, request, format=None):
         """Create a new directory"""
         serializer = DirectorySerializer(data=request.data)
