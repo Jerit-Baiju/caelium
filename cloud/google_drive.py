@@ -10,7 +10,6 @@ class GoogleDriveStorage:
     """Utility class for Google Drive storage operations"""
 
     # Google Drive folder ID for storing files
-    # TODO: Move this to environment variables
     DRIVE_FOLDER_ID = os.environ["DRIVE_FOLDER_ID"]
 
     def __init__(self):
