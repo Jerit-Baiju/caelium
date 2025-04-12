@@ -33,7 +33,7 @@ class FileSerializer(serializers.ModelSerializer):
             "mime_type",
             "download_url",
             "category",
-            "drive_file_id"
+            "drive_file_id",
         ]
         read_only_fields = [
             "id",
@@ -44,7 +44,7 @@ class FileSerializer(serializers.ModelSerializer):
             "encryption_iv",
             "download_url",
             "category",
-            "drive_file_id"
+            "drive_file_id",
         ]
         extra_kwargs = {
             "encryption_key": {"write_only": True},
@@ -56,8 +56,14 @@ class FileSerializer(serializers.ModelSerializer):
         if request is None:
             return None
 
-        # Ensure we're using the correct format for UUID
-        return f"{request.build_absolute_uri('/api/cloud/files/')}{obj.id}/download/"  
+        # Get the base URL
+        url = request.build_absolute_uri(f"/api/cloud/files/{obj.id}/download/")
+
+        # If domain is api.caelium.co, ensure we use https
+        if "api.caelium.co" in url:
+            url = url.replace("http://", "https://")
+
+        return url
 
 
 class SharedItemSerializer(serializers.ModelSerializer):
@@ -83,6 +89,7 @@ class SharedItemSerializer(serializers.ModelSerializer):
 
 class BreadcrumbSerializer(serializers.ModelSerializer):
     """Serializer for directory breadcrumb navigation"""
+
     class Meta:
         model = Directory
         fields = ["id", "name", "parent"]
