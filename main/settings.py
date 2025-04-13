@@ -31,6 +31,10 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
 ]
 
+# File upload settings
+DATA_UPLOAD_MAX_NUMBER_FILES = 200
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024 * 1024  # 10GB
+
 # Application definition
 
 INSTALLED_APPS = [
