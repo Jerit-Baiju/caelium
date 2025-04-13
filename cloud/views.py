@@ -2,9 +2,12 @@ import base64
 import os
 import secrets
 import threading
+import time
+from pathlib import Path
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from django.conf import settings
 from django.db import transaction
 from django.http import Http404, StreamingHttpResponse
 from rest_framework import status
@@ -17,6 +20,228 @@ from cloud.google_drive import GoogleDriveStorage
 from cloud.models import Directory, File
 from cloud.serializers import BreadcrumbSerializer, DirectorySerializer, FileSerializer
 from cloud.utils import check_type, extract_date_from_filename, get_directory_path
+
+
+class FileCache:
+    """Utility class for managing file caching"""
+
+    # Default cache expiration time (24 hours in seconds)
+    DEFAULT_EXPIRATION = 24 * 60 * 60
+
+    # Maximum cache size (10GB by default)
+    MAX_CACHE_SIZE = 10 * 1024 * 1024 * 1024
+
+    def __init__(self):
+        """Initialize the file cache directory"""
+        # Create cache directory inside media folder
+        self.cache_dir = Path(settings.MEDIA_ROOT) / "file_cache"
+        self.cache_dir.mkdir(exist_ok=True, parents=True)
+
+        # Create metadata file to track cache entries
+        self.metadata_file = self.cache_dir / "metadata.txt"
+        if not self.metadata_file.exists():
+            with open(self.metadata_file, "w", encoding="utf-8") as f:
+                f.write("")
+        # Start a background thread for cache cleanup
+        self._start_cleanup_thread()
+
+    def _start_cleanup_thread(self):
+        """Start a background thread to periodically clean up expired cache entries"""
+
+        def cleanup_task():
+            while True:
+                try:
+                    self.cleanup_expired()
+                    self.enforce_size_limit()
+                except Exception as e:
+                    print(f"Error in cache cleanup: {e}")
+                # Run cleanup every hour
+                time.sleep(3600)
+
+        thread = threading.Thread(target=cleanup_task)
+        thread.daemon = True
+        thread.start()
+
+    def get_cache_path(self, file_id):
+        """Generate a cache file path for a file ID"""
+        return self.cache_dir / f"{file_id}.cache"
+
+    def file_exists(self, file_id):
+        """Check if a file exists in the cache"""
+        cache_path = self.get_cache_path(file_id)
+        return cache_path.exists()
+
+    def get_file_generator(self, file_id, chunk_size=10 * 1024 * 1024):
+        """Get a generator that yields chunks from a cached file"""
+        cache_path = self.get_cache_path(file_id)
+
+        if not cache_path.exists():
+            return None
+
+        # Update the last access time
+        self._update_access_time(file_id)
+
+        # Stream the file in chunks
+        with open(cache_path, "rb") as f:
+            while True:
+                chunk = f.read(chunk_size)
+                if not chunk:
+                    break
+                yield chunk
+
+    def save_file(self, file_id, content_generator, expiration=None):
+        """Save a file to the cache from a generator"""
+        cache_path = self.get_cache_path(file_id)
+        tmp_path = cache_path.with_suffix(".tmp")
+
+        # Write content to temporary file
+        file_size = 0
+        with open(tmp_path, "wb") as f:
+            for chunk in content_generator:
+                f.write(chunk)
+                file_size += len(chunk)
+
+        # Rename temp file to final cache file
+        tmp_path.rename(cache_path)
+
+        # Add metadata entry
+        self._add_metadata(file_id, file_size, expiration or self.DEFAULT_EXPIRATION)
+
+        # Check cache size and clean up if necessary
+        self.enforce_size_limit()
+
+        return file_size
+
+    def invalidate(self, file_id):
+        """Remove a file from the cache"""
+        cache_path = self.get_cache_path(file_id)
+        if cache_path.exists():
+            cache_path.unlink()
+        self._remove_metadata(file_id)
+
+    def _add_metadata(self, file_id, size, expiration):
+        """Add or update metadata for a cache entry"""
+        now = int(time.time())
+        expires_at = now + expiration
+
+        # Read existing metadata
+        entries = self._read_metadata()
+
+        # Remove existing entry for this file_id if it exists
+        entries = [e for e in entries if e.get("file_id") != str(file_id)]
+
+        # Add new entry
+        entries.append(
+            {"file_id": str(file_id), "size": size, "created_at": now, "last_accessed": now, "expires_at": expires_at}
+        )
+
+        # Write updated metadata
+        self._write_metadata(entries)
+
+    def _update_access_time(self, file_id):
+        """Update the last access time for a cached file"""
+        entries = self._read_metadata()
+        for entry in entries:
+            if entry.get("file_id") == str(file_id):
+                entry["last_accessed"] = int(time.time())
+                break
+
+        self._write_metadata(entries)
+
+    def _remove_metadata(self, file_id):
+        """Remove metadata for a file"""
+        entries = self._read_metadata()
+        entries = [e for e in entries if e.get("file_id") != str(file_id)]
+        self._write_metadata(entries)
+
+    def _read_metadata(self):
+        """Read cache metadata from the metadata file"""
+        if not self.metadata_file.exists():
+            return []
+
+        try:
+            import json
+
+            with open(self.metadata_file, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                if content:
+                    return json.loads(content)
+                return []
+        except Exception as e:
+            print(f"Error reading cache metadata: {e}")
+            return []
+
+    def _write_metadata(self, entries):
+        """Write cache metadata to the metadata file"""
+        try:
+            import json
+
+            with open(self.metadata_file, "w", encoding="utf-8") as f:
+                json.dump(entries, f)
+        except Exception as e:
+            print(f"Error writing cache metadata: {e}")
+
+    def cleanup_expired(self):
+        """Remove expired cache entries"""
+        now = int(time.time())
+        entries = self._read_metadata()
+
+        expired_entries = [e for e in entries if e.get("expires_at", 0) < now]
+        remaining_entries = [e for e in entries if e.get("expires_at", 0) >= now]
+
+        # Remove expired files
+        for entry in expired_entries:
+            file_id = entry.get("file_id")
+            if file_id:
+                cache_path = self.get_cache_path(file_id)
+                if cache_path.exists():
+                    try:
+                        cache_path.unlink()
+                    except Exception as e:
+                        print(f"Error deleting expired cache file: {e}")
+
+        # Update metadata
+        self._write_metadata(remaining_entries)
+
+    def enforce_size_limit(self):
+        """Ensure the cache size is within limits, removing least recently used files if needed"""
+        entries = self._read_metadata()
+
+        # Calculate total size
+        total_size = sum(e.get("size", 0) for e in entries)
+
+        if total_size <= self.MAX_CACHE_SIZE:
+            return
+
+        # Sort by last accessed time (oldest first)
+        entries.sort(key=lambda e: e.get("last_accessed", 0))
+
+        # Remove files until we're under the limit
+        removed_entries = []
+        for entry in entries:
+            if total_size <= self.MAX_CACHE_SIZE:
+                break
+
+            file_id = entry.get("file_id")
+            file_size = entry.get("size", 0)
+
+            if file_id:
+                cache_path = self.get_cache_path(file_id)
+                if cache_path.exists():
+                    try:
+                        cache_path.unlink()
+                        total_size -= file_size
+                        removed_entries.append(entry)
+                    except Exception as e:
+                        print(f"Error removing cache file during size enforcement: {e}")
+
+        # Update metadata
+        remaining_entries = [e for e in entries if e not in removed_entries]
+        self._write_metadata(remaining_entries)
+
+
+# Create a singleton instance of the file cache
+file_cache = FileCache()
 
 
 class FileDownloadView(APIView):
@@ -38,6 +263,13 @@ class FileDownloadView(APIView):
 
     def decrypt_file_stream(self, file_obj):
         """Generator to stream decrypt file data in chunks"""
+        # Check if file is in cache
+        if file_cache.file_exists(file_obj.id):
+            # Return cached file content
+            yield from file_cache.get_file_generator(file_obj.id, self.CHUNK_SIZE)
+            return
+
+        # If not in cache, decrypt and cache simultaneously
         # Decode key and IV from base64
         key_bytes = base64.b64decode(file_obj.encryption_key)
         iv_bytes = base64.b64decode(file_obj.encryption_iv)
@@ -50,6 +282,9 @@ class FileDownloadView(APIView):
         drive = GoogleDriveStorage()
         file_content = drive.download_file(file_obj.drive_file_id)
 
+        # Create a list to store chunks for caching
+        decrypted_chunks = []
+
         # Process file in chunks
         while True:
             chunk = file_content.read(self.CHUNK_SIZE)
@@ -58,10 +293,31 @@ class FileDownloadView(APIView):
 
             # Decrypt the chunk
             decrypted_chunk = self.decrypt_chunk(chunk, key_bytes, iv_bytes, counter)
+
+            # Store for caching
+            decrypted_chunks.append(decrypted_chunk)
+
+            # Yield the chunk for streaming
             yield decrypted_chunk
 
             # Increment counter for next chunk
             counter += 1
+
+        # Cache the file in the background
+        self.cache_file_in_background(file_obj.id, decrypted_chunks)
+
+    def cache_file_in_background(self, file_id, chunks):
+        """Cache the file in the background"""
+
+        def cache_task():
+            try:
+                file_cache.save_file(file_id, chunks)
+            except Exception as e:
+                print(f"Error caching file {file_id}: {e}")
+
+        thread = threading.Thread(target=cache_task)
+        thread.daemon = True
+        thread.start()
 
     def get(self, request, pk, format=None):
         """Handle GET request for file download with streaming"""
