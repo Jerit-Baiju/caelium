@@ -16,3 +16,4 @@ media/gallery/
 venv
 media/encrypted_files
 service_account.json
+media/file_cache
