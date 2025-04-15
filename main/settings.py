@@ -21,15 +21,26 @@ DEBUG = bool(os.environ["env"] == "dev")
 AUTH_USER_MODEL = "accounts.User"
 
 ALLOWED_HOSTS = ["api.caelium.co", "192.168.43.157", "127.0.0.1", "localhost"]
+# Add custom allowed host from environment variable if it exists
+if "CUSTOM_ALLOWED_HOST" in os.environ and os.environ["CUSTOM_ALLOWED_HOST"]:
+    ALLOWED_HOSTS.append(os.environ["CUSTOM_ALLOWED_HOST"])
 
 CORS_ALLOW_ALL_ORIGINS = True
 
+# Update CSRF trusted origins with custom allowed host if it exists
 CSRF_TRUSTED_ORIGINS = [
     "https://api.caelium.co",
     "http://192.168.43.157:8000",
     "http://192.168.43.157:3000",
     "http://localhost:3000",
 ]
+if "CUSTOM_ALLOWED_HOST" in os.environ and os.environ["CUSTOM_ALLOWED_HOST"]:
+    CSRF_TRUSTED_ORIGINS.extend(
+        [
+            f"http://{os.environ['CUSTOM_ALLOWED_HOST']}:8000",
+            f"http://{os.environ['CUSTOM_ALLOWED_HOST']}:3000",
+        ]
+    )
 
 # File upload settings
 DATA_UPLOAD_MAX_NUMBER_FILES = 200
