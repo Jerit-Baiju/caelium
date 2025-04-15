@@ -46,6 +46,8 @@ class File(models.Model):
         ],
         default='completed'
     )
+    # Store local file path for files still being uploaded
+    local_path = models.CharField(max_length=500, blank=True, null=True)
 
     @property
     def path(self):

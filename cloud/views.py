@@ -4,6 +4,7 @@ import secrets
 import threading
 import time
 from pathlib import Path
+import uuid
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -261,15 +262,45 @@ class FileDownloadView(APIView):
         decryptor = cipher.decryptor()
         return decryptor.update(chunk) + decryptor.finalize()
 
-    def decrypt_file_stream(self, file_obj):
-        """Generator to stream decrypt file data in chunks"""
-        # Check if file is in cache
-        if file_cache.file_exists(file_obj.id):
-            # Return cached file content
-            yield from file_cache.get_file_generator(file_obj.id, self.CHUNK_SIZE)
-            return
+    def decrypt_file_stream_from_local(self, file_obj):
+        """Generator to stream decrypt file data in chunks from local file storage"""
+        # Decode key and IV from base64
+        key_bytes = base64.b64decode(file_obj.encryption_key)
+        iv_bytes = base64.b64decode(file_obj.encryption_iv)
 
-        # If not in cache, decrypt and cache simultaneously
+        # For CTR mode, we use a 12-byte nonce + 4-byte counter
+        # Starting counter at 0
+        counter = 0
+
+        # Ensure the local file exists
+        if not os.path.exists(file_obj.local_path):
+            raise FileNotFoundError(f"Local file not found: {file_obj.local_path}")
+
+        # Process file in chunks
+        decrypted_chunks = []
+        with open(file_obj.local_path, 'rb') as file_content:
+            while True:
+                chunk = file_content.read(self.CHUNK_SIZE)
+                if not chunk:
+                    break
+
+                # Decrypt the chunk
+                decrypted_chunk = self.decrypt_chunk(chunk, key_bytes, iv_bytes, counter)
+
+                # Store for caching
+                decrypted_chunks.append(decrypted_chunk)
+
+                # Yield the chunk for streaming
+                yield decrypted_chunk
+
+                # Increment counter for next chunk
+                counter += 1
+
+        # Cache the file in the background
+        self.cache_file_in_background(file_obj.id, decrypted_chunks)
+
+    def decrypt_file_stream_from_drive(self, file_obj):
+        """Generator to stream decrypt file data in chunks from Google Drive"""
         # Decode key and IV from base64
         key_bytes = base64.b64decode(file_obj.encryption_key)
         iv_bytes = base64.b64decode(file_obj.encryption_iv)
@@ -306,6 +337,32 @@ class FileDownloadView(APIView):
         # Cache the file in the background
         self.cache_file_in_background(file_obj.id, decrypted_chunks)
 
+    def decrypt_file_stream(self, file_obj):
+        """Generator to stream decrypt file data in chunks"""
+        # Check if file is in cache
+        if file_cache.file_exists(file_obj.id):
+            # Return cached file content
+            yield from file_cache.get_file_generator(file_obj.id, self.CHUNK_SIZE)
+            return
+            
+        # If file is still being uploaded to Google Drive, try to serve from local storage
+        if file_obj.upload_status == "pending" and file_obj.local_path:
+            try:
+                yield from self.decrypt_file_stream_from_local(file_obj)
+                return
+            except FileNotFoundError:
+                # If local file is not found, fall back to Google Drive if available
+                if not file_obj.drive_file_id:
+                    raise Http404("File content not found locally or in Google Drive")
+        
+        # If file is in Google Drive, serve from there
+        if file_obj.drive_file_id:
+            yield from self.decrypt_file_stream_from_drive(file_obj)
+            return
+            
+        # If we get here, we couldn't find the file content
+        raise Http404("File content not found")
+
     def cache_file_in_background(self, file_id, chunks):
         """Cache the file in the background"""
 
@@ -327,8 +384,8 @@ class FileDownloadView(APIView):
         except File.DoesNotExist:
             raise Http404("File not found")
 
-        # Check if file exists in Google Drive
-        if not file_obj.drive_file_id:
+        # Check if file content is available (either in Google Drive or local storage)
+        if not file_obj.drive_file_id and (file_obj.upload_status != "pending" or not file_obj.local_path):
             raise Http404("File content not found")
 
         # Create streaming response with decrypted data
@@ -353,6 +410,8 @@ class FileUploadView(APIView):
     permission_classes = [IsAuthenticated]
     # Buffer size: 10MB chunks for processing
     CHUNK_SIZE = 10 * 1024 * 1024
+    # Local uploads directory
+    UPLOADS_DIR = Path(settings.MEDIA_ROOT) / "file_uploads"
 
     def encrypt_large_file(self, uploaded_file):
         """Process large file encryption in chunks using AES-256 CTR mode"""
@@ -362,10 +421,15 @@ class FileUploadView(APIView):
         # (Counter will be the remaining 4 bytes, starting at 0)
         iv = secrets.token_bytes(12)
 
-        # Create a temporary file to store encrypted content
-        import tempfile
-
-        temp_encrypted = tempfile.NamedTemporaryFile(delete=False)
+        # Create a file UUID for storage
+        file_uuid = str(uuid.uuid4())
+        
+        # Create directory for this file
+        file_dir = self.UPLOADS_DIR / file_uuid
+        file_dir.mkdir(exist_ok=True, parents=True)
+        
+        # Create file path for encrypted content
+        encrypted_file_path = file_dir / uploaded_file.name
 
         # Track file size
         file_size = 0
@@ -373,37 +437,38 @@ class FileUploadView(APIView):
 
         try:
             # Process the file in chunks
-            for chunk in uploaded_file.chunks(self.CHUNK_SIZE):
-                # Update file size
-                file_size += len(chunk)
+            with open(encrypted_file_path, 'wb') as encrypted_file:
+                for chunk in uploaded_file.chunks(self.CHUNK_SIZE):
+                    # Update file size
+                    file_size += len(chunk)
 
-                # Create CTR cipher for this chunk
-                cipher = Cipher(
-                    algorithms.AES(key), modes.CTR(iv + counter.to_bytes(4, byteorder="big")), backend=default_backend()
-                )
-                encryptor = cipher.encryptor()
+                    # Create CTR cipher for this chunk
+                    cipher = Cipher(
+                        algorithms.AES(key), modes.CTR(iv + counter.to_bytes(4, byteorder="big")), backend=default_backend()
+                    )
+                    encryptor = cipher.encryptor()
 
-                # Encrypt the chunk and write to temp file
-                encrypted_chunk = encryptor.update(chunk) + encryptor.finalize()
-                temp_encrypted.write(encrypted_chunk)
+                    # Encrypt the chunk and write to file
+                    encrypted_chunk = encryptor.update(chunk) + encryptor.finalize()
+                    encrypted_file.write(encrypted_chunk)
 
-                # Increment counter for next chunk
-                counter += 1
+                    # Increment counter for next chunk
+                    counter += 1
 
-            temp_encrypted.close()
-
-            # Return the temp file path and encryption params
+            # Return the file path and encryption params
             return {
-                "temp_file": temp_encrypted.name,
+                "file_path": str(encrypted_file_path),
+                "file_uuid": file_uuid,
                 "size": file_size,
                 "key": base64.b64encode(key).decode("utf-8"),
                 "iv": base64.b64encode(iv).decode("utf-8"),
             }
         except Exception as e:
-            # Clean up temp file in case of errors
-            temp_encrypted.close()
-            if os.path.exists(temp_encrypted.name):
-                os.unlink(temp_encrypted.name)
+            # Clean up file in case of errors
+            if encrypted_file_path.exists():
+                encrypted_file_path.unlink()
+            if file_dir.exists() and len(list(file_dir.iterdir())) == 0:
+                file_dir.rmdir()
             raise e
 
     def create_or_get_directory(self, user, directory_name, parent=None):
@@ -436,11 +501,25 @@ class FileUploadView(APIView):
                 file_obj = File.objects.get(id=file_id)
                 file_obj.drive_file_id = drive_file["id"]
                 file_obj.upload_status = "completed"
+                # We no longer need to store the local path after successful upload
+                file_obj.local_path = None
                 file_obj.save()
 
-            # Delete the temporary file
+            # Delete the local file after successful upload
             if os.path.exists(temp_file_path):
-                os.unlink(temp_file_path)
+                try:
+                    # Get the UUID folder path (parent directory of the file)
+                    uuid_folder = os.path.dirname(temp_file_path)
+                    
+                    # Delete the file first
+                    os.remove(temp_file_path)
+                    
+                    # Check if the UUID folder is empty
+                    if os.path.exists(uuid_folder) and len(os.listdir(uuid_folder)) == 0:
+                        # If empty, remove the UUID folder
+                        os.rmdir(uuid_folder)
+                except Exception as e:
+                    print(f"Error deleting local file after upload: {str(e)}")
 
         except Exception as e:
             # Handle errors - update file status to reflect failure
@@ -448,16 +527,10 @@ class FileUploadView(APIView):
                 with transaction.atomic():
                     file_obj = File.objects.get(id=file_id)
                     file_obj.upload_status = "failed"
+                    file_obj.local_path = temp_file_path  # Keep local path on failure
                     file_obj.save()
-            except:
-                pass
-
-            # Clean up temporary file on error
-            if os.path.exists(temp_file_path):
-                try:
-                    os.unlink(temp_file_path)
-                except:
-                    pass
+            except Exception as inner_e:
+                print(f"Error updating file status: {inner_e}")
 
             # Log the error
             print(f"Error uploading file to Google Drive: {str(e)}")
@@ -517,13 +590,14 @@ class FileUploadView(APIView):
                         category=category,
                         created_at=file_date,
                         upload_status="pending",  # Mark as pending until Google Drive upload completes
+                        local_path=encryption_result["file_path"]  # Store path to local encrypted file
                     )
 
                     # Save the file object to get an ID
                     file_obj.save()
 
                 # Start Google Drive upload in background thread
-                temp_file_path = encryption_result["temp_file"]
+                temp_file_path = encryption_result["file_path"]
                 thread = threading.Thread(
                     target=self.upload_to_drive_in_background, args=(file_obj.id, temp_file_path, uploaded_file.name)
                 )
