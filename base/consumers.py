@@ -65,8 +65,11 @@ class BaseConsumer(WebsocketConsumer):
             if self.user.id in self.active_connections:
                 self.active_connections[self.user.id].discard(self.channel_name)
                 if not self.active_connections[self.user.id]:
+                    # No remaining connections for this user, set to offline
                     del self.active_connections[self.user.id]
+                    self.user.is_online = False
                     self.user.update_last_seen()
+                    self.user.save()
                     self.broadcast_status(is_online=False)
             async_to_sync(self.channel_layer.group_discard)(f"user_{self.user.id}", self.channel_name)
 
