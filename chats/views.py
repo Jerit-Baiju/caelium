@@ -1,3 +1,4 @@
+from django.db.models import Count
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
@@ -31,7 +32,18 @@ class ChatViewSet(viewsets.ModelViewSet):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def get_queryset(self):
+        # Return all chats for the user (for detail view and others)
         return Chat.objects.filter(participants=self.request.user, is_random=False).order_by("-updated_time")
+
+    def list(self, request, *args, **kwargs):
+        # Only in list view, filter chats with at least one message
+        queryset = self.get_queryset().annotate(message_count=Count("message")).filter(message_count__gt=0)
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
     def destroy(self, request, *args, **kwargs):
         chat = self.get_object()
