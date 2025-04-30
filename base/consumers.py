@@ -8,6 +8,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from accounts.models import User
+from base.utils import log_admin
 from chats.models import Chat, Message
 
 
@@ -92,11 +93,21 @@ class BaseConsumer(WebsocketConsumer):
                 chat.updated_time = timezone.now()
                 chat.save()
                 if message:
+                    # Send message to all participants
                     for recipient in Chat.objects.get(id=data["chat_id"]).participants.all():
                         async_to_sync(self.channel_layer.group_send)(
                             f"user_{recipient.id}",
                             {"type": "new_message", "message": message},
                         )
+                    
+                    # Log message event to admin socket using existing utility function
+                    log_admin({
+                        "event_type": "new_message",
+                        "sender": str(self.user.id),
+                        "sender_username": self.user.username,
+                        "chat_id": str(data["chat_id"]),
+                        "content": data["message"],
+                    })
 
             elif data["category"] == "file_message":
                 message = Message.objects.get(id=data["message_id"])
@@ -105,6 +116,15 @@ class BaseConsumer(WebsocketConsumer):
                         async_to_sync(self.channel_layer.group_send)(
                             f"user_{recipient.id}", {"type": "new_message", "message": message}
                         )
+                
+                # Log file message event to admin socket using existing utility function
+                log_admin({
+                    "event_type": "file_message",
+                    "sender": str(self.user.id),
+                    "sender_username": self.user.username,
+                    "chat_id": str(data["chat_id"]),
+                    "message_id": str(data["message_id"]),
+                })
             elif data["category"] == "typing":
                 chat = Chat.objects.get(id=data["chat_id"])
                 data["sender"] = self.user.id
