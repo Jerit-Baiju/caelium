@@ -29,6 +29,7 @@ class LoginView(APIView):
 
 class Stats(APIView):
     permission_classes = (permissions.IsAdminUser,)
+
     def get(self, request, *args, **kwargs):
         stats = {
             "users": User.objects.count(),
