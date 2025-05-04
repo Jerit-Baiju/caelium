@@ -119,6 +119,7 @@ else:
             },
         },
     }
+    print("Using Redis as the channel layer")
 
 
 # Database
