@@ -39,7 +39,6 @@ class BaseConsumer(WebsocketConsumer):
             async_to_sync(self.channel_layer.group_add)(f"user_{user_id}", self.channel_name)
             self.send(text_data=json.dumps({"message": f"Welcome to Caelium, {self.user.username}!"}))
             online_users = self.get_online_users()
-            print(f"User {self.user.username} connected")
             self.send(
                 text_data=json.dumps(
                     {
@@ -62,7 +61,6 @@ class BaseConsumer(WebsocketConsumer):
         if self.user:
             # Remove user from random chat queue if present
             self.remove_from_queue()
-            print(f"User {self.user.username} disconnected")
             if self.user.id in self.active_connections:
                 self.active_connections[self.user.id].discard(self.channel_name)
                 if not self.active_connections[self.user.id]:
