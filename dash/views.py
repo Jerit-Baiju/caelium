@@ -1,14 +1,18 @@
 from django.contrib.auth import authenticate
 from django.utils import timezone
+from django.db.models import Q
 from datetime import timedelta
-from rest_framework import permissions, status
+from rest_framework import permissions, status, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.generics import ListCreateAPIView, RetrieveDestroyAPIView
+from rest_framework.pagination import PageNumberPagination
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.models import User
 from chats.models import Chat, Message
 from cloud.models import File
+from dash.serializers import DashboardUserSerializer
 
 
 class LoginView(APIView):
@@ -27,6 +31,39 @@ class LoginView(APIView):
                 }
             )
         return Response({"error": "Invalid Credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+
+
+class UserPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 50
+
+
+class UserListView(ListCreateAPIView):
+    serializer_class = DashboardUserSerializer
+    permission_classes = (permissions.IsAdminUser,)
+    pagination_class = UserPagination
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['username', 'email', 'name']
+    ordering_fields = ['username', 'email', 'date_joined']
+    
+    def get_queryset(self):
+        queryset = User.objects.all()
+        
+        # Handle status filter
+        status_filter = self.request.query_params.get('status', None)
+        if status_filter:
+            if status_filter == 'online':
+                queryset = queryset.filter(is_online=True)
+            elif status_filter == 'offline':
+                queryset = queryset.filter(is_online=False)
+                
+        # Handle sort_by parameter
+        sort_by = self.request.query_params.get('sort_by', '-date_joined')
+        if sort_by:
+            queryset = queryset.order_by(sort_by)
+            
+        return queryset
 
 
 class Stats(APIView):
@@ -110,3 +147,9 @@ class Stats(APIView):
             "cloudActivity": cloud_activity,
         }
         return Response(stats)
+
+
+class UserDetailView(RetrieveDestroyAPIView):
+    serializer_class = DashboardUserSerializer
+    permission_classes = (permissions.IsAdminUser,)
+    queryset = User.objects.all()
