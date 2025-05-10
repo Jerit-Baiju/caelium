@@ -6,7 +6,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.models import User
 from chats.models import Chat, Message
-from crafts.models import Craft
+from cloud.models import File  # Assuming the File model is in cloud.models
 
 
 class LoginView(APIView):
@@ -35,6 +35,6 @@ class Stats(APIView):
             "users": User.objects.count(),
             "messages": Message.objects.count(),
             "chats": Chat.objects.count(),
-            "crafts": Craft.objects.count(),
+            "cloudFiles": File.objects.count(),
         }
         return Response(stats)
