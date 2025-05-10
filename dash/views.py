@@ -78,14 +78,25 @@ class Stats(APIView):
             .annotate(count=Count('id'))
             .order_by('day')
         )
+        # Cloud file activity for last 7 days (for Cloud Activity chart)
+        cloud_activity_qs = (
+            File.objects.filter(created_at__gte=now - timedelta(days=6))
+            .annotate(day=TruncDate('created_at'))
+            .values('day')
+            .annotate(count=Count('id'))
+            .order_by('day')
+        )
         import calendar
         days_map = {i: calendar.day_abbr[i] for i in range(7)}
         message_activity = []
+        cloud_activity = []
         for i in range(6, -1, -1):
             day_date = (now - timedelta(days=i)).date()
             day_label = days_map[day_date.weekday()]
-            count = next((item['count'] for item in message_activity_qs if item['day'] == day_date), 0)
-            message_activity.append({'day': day_label, 'count': count})
+            msg_count = next((item['count'] for item in message_activity_qs if item['day'] == day_date), 0)
+            file_count = next((item['count'] for item in cloud_activity_qs if item['day'] == day_date), 0)
+            message_activity.append({'day': day_label, 'count': msg_count})
+            cloud_activity.append({'day': day_label, 'count': file_count})
 
         stats = {
             "total": {
@@ -96,5 +107,6 @@ class Stats(APIView):
             },
             "weekly": weekly,
             "chatActivity": message_activity,
+            "cloudActivity": cloud_activity,
         }
         return Response(stats)
