@@ -41,11 +41,6 @@ class Stats(APIView):
             start_of_last_week = start_of_this_week - timedelta(days=7)
             return start_of_this_week, start_of_last_week
 
-        def get_month_range():
-            first_of_this_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            last_month = (first_of_this_month - timedelta(days=1)).replace(day=1)
-            return first_of_this_month, last_month
-
         def calc_trend(current, prev):
             if prev == 0:
                 return 100.0 if current > 0 else 0.0
@@ -71,28 +66,6 @@ class Stats(APIView):
             "chats_trend": calc_trend(chats_current_week, chats_prev_week),
             "cloudFiles": cloud_files_current_week,
             "cloudFiles_trend": calc_trend(cloud_files_current_week, cloud_files_prev_week),
-        }
-
-        # Monthly stats
-        month_start_current, month_start_prev = get_month_range()
-        users_current_month = User.objects.filter(date_joined__gte=month_start_current).count()
-        users_prev_month = User.objects.filter(date_joined__gte=month_start_prev, date_joined__lt=month_start_current).count()
-        messages_current_month = Message.objects.filter(timestamp__gte=month_start_current).count()
-        messages_prev_month = Message.objects.filter(timestamp__gte=month_start_prev, timestamp__lt=month_start_current).count()
-        chats_current_month = Chat.objects.filter(updated_time__gte=month_start_current).count()
-        chats_prev_month = Chat.objects.filter(updated_time__gte=month_start_prev, updated_time__lt=month_start_current).count()
-        cloud_files_current_month = File.objects.filter(created_at__gte=month_start_current).count()
-        cloud_files_prev_month = File.objects.filter(created_at__gte=month_start_prev, created_at__lt=month_start_current).count()
-
-        monthly = {
-            "users": users_current_month,
-            "users_trend": calc_trend(users_current_month, users_prev_month),
-            "messages": messages_current_month,
-            "messages_trend": calc_trend(messages_current_month, messages_prev_month),
-            "chats": chats_current_month,
-            "chats_trend": calc_trend(chats_current_month, chats_prev_month),
-            "cloudFiles": cloud_files_current_month,
-            "cloudFiles_trend": calc_trend(cloud_files_current_month, cloud_files_prev_month),
         }
 
         # Message activity for last 7 days (for Chat Activity chart)
@@ -122,7 +95,6 @@ class Stats(APIView):
                 "cloudFiles": File.objects.count(),
             },
             "weekly": weekly,
-            "monthly": monthly,
             "chatActivity": message_activity,
         }
         return Response(stats)
