@@ -95,6 +95,25 @@ class Stats(APIView):
             "cloudFiles_trend": calc_trend(cloud_files_current_month, cloud_files_prev_month),
         }
 
+        # Message activity for last 7 days (for Chat Activity chart)
+        from django.db.models.functions import TruncDate
+        from django.db.models import Count
+        message_activity_qs = (
+            Message.objects.filter(timestamp__gte=now - timedelta(days=6))
+            .annotate(day=TruncDate('timestamp'))
+            .values('day')
+            .annotate(count=Count('id'))
+            .order_by('day')
+        )
+        import calendar
+        days_map = {i: calendar.day_abbr[i] for i in range(7)}
+        message_activity = []
+        for i in range(6, -1, -1):
+            day_date = (now - timedelta(days=i)).date()
+            day_label = days_map[day_date.weekday()]
+            count = next((item['count'] for item in message_activity_qs if item['day'] == day_date), 0)
+            message_activity.append({'day': day_label, 'count': count})
+
         stats = {
             "total": {
                 "users": User.objects.count(),
@@ -103,6 +122,7 @@ class Stats(APIView):
                 "cloudFiles": File.objects.count(),
             },
             "weekly": weekly,
-            "monthly": monthly
+            "monthly": monthly,
+            "chatActivity": message_activity,
         }
         return Response(stats)
