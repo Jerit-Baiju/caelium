@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from accounts.serializers import UserSerializer
-from cloud.models import Directory, File, SharedItem
+from cloud.models import Directory, File, SharedItem, Tag
 
 
 class DirectorySerializer(serializers.ModelSerializer):
@@ -93,3 +93,18 @@ class BreadcrumbSerializer(serializers.ModelSerializer):
     class Meta:
         model = Directory
         fields = ["id", "name", "parent"]
+
+
+class TagSerializer(serializers.ModelSerializer):
+    """Serializer for Tag model"""
+    owner_details = UserSerializer(source="owner", read_only=True)
+    
+    class Meta:
+        model = Tag
+        fields = ["id", "name", "owner", "owner_details", "related_user", "created_at"]
+        read_only_fields = ["id", "owner", "created_at"]
+        
+    def create(self, validated_data):
+        # Set owner to the current user
+        validated_data["owner"] = self.context["request"].user
+        return super().create(validated_data)

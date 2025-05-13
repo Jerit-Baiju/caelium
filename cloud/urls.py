@@ -1,9 +1,10 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from cloud.views import (ExplorerView, FileDownloadView, FileUploadView, GalleryListView)
+from cloud.views import (ExplorerView, FileDownloadView, FileUploadView, GalleryListView, TagViewSet)
 
 router = DefaultRouter()
+router.register(r'tags', TagViewSet, basename='tags')
 
 urlpatterns = [
     path("", include(router.urls)),

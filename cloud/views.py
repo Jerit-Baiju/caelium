@@ -11,15 +11,16 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from django.conf import settings
 from django.db import transaction
 from django.http import Http404, StreamingHttpResponse
-from rest_framework import status
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from cloud.google_drive import GoogleDriveStorage
-from cloud.models import Directory, File
-from cloud.serializers import BreadcrumbSerializer, DirectorySerializer, FileSerializer
+from cloud.models import Directory, File, Tag, FileTag
+from cloud.serializers import BreadcrumbSerializer, DirectorySerializer, FileSerializer, TagSerializer
 from cloud.utils import check_type, extract_date_from_filename, get_directory_path
 
 
@@ -755,3 +756,167 @@ class ExplorerView(APIView):
             return Response(DirectorySerializer(directory).data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class TagViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing file tags"""
+    serializer_class = TagSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        """Return only tags owned by the current user"""
+        return Tag.objects.filter(owner=self.request.user)
+        
+    def create(self, request, *args, **kwargs):
+        """Create a new tag with validation for file ownership"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        # Only accept file_ids as an array
+        file_ids = request.data.get('file_ids')
+        
+        # Check if file_ids is provided and is an array
+        if not file_ids:
+            return Response(
+                {"error": "file_ids is required and must be an array"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # Verify file_ids is actually an array
+        if not isinstance(file_ids, list):
+            return Response(
+                {"error": "file_ids must be an array, even for a single file"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validate that all files exist and belong to the current user
+        files = []
+        for fid in file_ids:
+            try:
+                file = File.objects.get(id=fid, owner=request.user)
+                files.append(file)
+            except File.DoesNotExist:
+                return Response(
+                    {"error": f"File with id {fid} not found or you don't have permission to tag this file"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        
+        # Create the tag
+        tag = serializer.save(owner=request.user)
+        
+        # Create FileTag associations for all files
+        for file in files:
+            FileTag.objects.create(file=file, tag=tag)
+        
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+    def perform_update(self, serializer):
+        """Update an existing tag"""
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        """Delete a tag"""
+        instance.delete()
+
+    @action(detail=True, methods=['get'])
+    def files(self, request, pk=None):
+        """Get all files associated with a tag"""
+        tag = self.get_object()  # This will use get_queryset, ensuring the user owns the tag
+        
+        # Get all FileTag entries for this tag
+        file_tags = FileTag.objects.filter(tag=tag)
+        files = [ft.file for ft in file_tags]
+        
+        # Serialize the files
+        serializer = FileSerializer(files, many=True, context={'request': request})
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def tag_files(self, request, pk=None):
+        """Add files to an existing tag"""
+        tag = self.get_object()
+        
+        # Get file IDs from request
+        file_ids = request.data.get('file_ids')
+        if not file_ids:
+            return Response(
+                {"error": "file_ids is required and must be an array"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # Verify file_ids is actually an array
+        if not isinstance(file_ids, list):
+            return Response(
+                {"error": "file_ids must be an array, even for a single file"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validate files exist and belong to user
+        added_files = []
+        errors = []
+        
+        for file_id in file_ids:
+            try:
+                file = File.objects.get(id=file_id, owner=request.user)
+                
+                # Check if this file is already tagged
+                file_tag, created = FileTag.objects.get_or_create(file=file, tag=tag)
+                
+                if created:
+                    added_files.append(FileSerializer(file, context={'request': request}).data)
+                else:
+                    errors.append(f"File {file_id} is already tagged with this tag")
+                    
+            except File.DoesNotExist:
+                errors.append(f"File {file_id} not found or you don't have permission to tag it")
+        
+        return Response({
+            "tag": TagSerializer(tag).data,
+            "added_files": added_files,
+            "errors": errors
+        })
+    
+    @action(detail=True, methods=['post'])
+    def untag_files(self, request, pk=None):
+        """Remove files from a tag"""
+        tag = self.get_object()
+        
+        # Get file IDs from request
+        file_ids = request.data.get('file_ids')
+        if not file_ids:
+            return Response(
+                {"error": "file_ids is required and must be an array"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # Verify file_ids is actually an array
+        if not isinstance(file_ids, list):
+            return Response(
+                {"error": "file_ids must be an array, even for a single file"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Process file removals
+        removed_files = []
+        errors = []
+        
+        for file_id in file_ids:
+            try:
+                file = File.objects.get(id=file_id, owner=request.user)
+                
+                try:
+                    # Find and delete the FileTag association
+                    file_tag = FileTag.objects.get(file=file, tag=tag)
+                    file_tag.delete()
+                    removed_files.append(FileSerializer(file, context={'request': request}).data)
+                except FileTag.DoesNotExist:
+                    errors.append(f"File {file_id} was not tagged with this tag")
+                    
+            except File.DoesNotExist:
+                errors.append(f"File {file_id} not found or you don't have permission to modify its tags")
+        
+        return Response({
+            "tag": TagSerializer(tag).data,
+            "removed_files": removed_files,
+            "errors": errors
+        })
