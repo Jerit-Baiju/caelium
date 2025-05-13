@@ -46,14 +46,18 @@ class SharedItemAdmin(admin.ModelAdmin):
 
 @admin.register(Tag)
 class TagAdmin(admin.ModelAdmin):
-    list_display = ("name", "created_at")
-    search_fields = ("name",)
+    list_display = ("name", "owner", "related_user", "created_at")
+    list_filter = ("owner", "created_at")
+    search_fields = ("name", "owner__username", "related_user__username")
     date_hierarchy = "created_at"
 
 
 @admin.register(FileTag)
 class FileTagAdmin(admin.ModelAdmin):
-    list_display = ("file", "tag", "user", "created_at")
-    list_filter = ("tag", "user", "created_at")
-    search_fields = ("file__name", "tag__name", "user__username")
+    list_display = ("file", "tag", "created_at")
+    list_filter = ("tag", "created_at")
+    search_fields = ("file__name", "tag__name")
     date_hierarchy = "created_at"
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("file", "tag")

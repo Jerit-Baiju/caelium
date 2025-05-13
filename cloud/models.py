@@ -1,4 +1,3 @@
-import os
 import uuid
 
 from django.db import models
@@ -38,13 +37,9 @@ class File(models.Model):
     # Google Drive specific fields
     drive_file_id = models.CharField(max_length=255, blank=True, null=True)
     upload_status = models.CharField(
-        max_length=20, 
-        choices=[
-            ('pending', 'Pending'),
-            ('completed', 'Completed'),
-            ('failed', 'Failed')
-        ],
-        default='completed'
+        max_length=20,
+        choices=[("pending", "Pending"), ("completed", "Completed"), ("failed", "Failed")],
+        default="completed",
     )
     # Store local file path for files still being uploaded
     local_path = models.CharField(max_length=500, blank=True, null=True)
@@ -62,6 +57,7 @@ class File(models.Model):
         # If file is stored in Google Drive, delete it from there
         if self.drive_file_id:
             from cloud.google_drive import GoogleDriveStorage
+
             try:
                 drive = GoogleDriveStorage()
                 drive.delete_file(self.drive_file_id)
@@ -89,27 +85,39 @@ class SharedItem(models.Model):
 
 
 class Tag(models.Model):
-    """Model to represent tags for files"""
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"{self.name}"
-
-
-class FileTag(models.Model):
-    """Model to connect files with tags and users who applied them"""
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    file = models.ForeignKey(File, on_delete=models.CASCADE, related_name="file_tags")
-    tag = models.ForeignKey(Tag, on_delete=models.CASCADE, related_name="file_tags")
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="applied_tags")
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="tags")
+    related_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="related_tags")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ("file", "tag", "user")
+        # Enforce unique constraint for tag name per owner
+        # Also enforce unique constraint for related_user per owner
+        constraints = [
+            models.UniqueConstraint(fields=["owner", "name"], name="unique_tag_name_per_owner"),
+            models.UniqueConstraint(
+                fields=["owner", "related_user"],
+                name="unique_related_user_per_owner",
+                condition=models.Q(related_user__isnull=False),
+            ),
+        ]
 
     def __str__(self):
-        return f"{self.file.name} - {self.tag.name} (by {self.user.username})"
+        if self.related_user:
+            return f"{self.name} ({self.related_user.email})"
+        return self.name
+
+
+class FileTag(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    file = models.ForeignKey(File, on_delete=models.CASCADE, related_name="tags")
+    tag = models.ForeignKey(Tag, on_delete=models.CASCADE, related_name="files")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # Ensure a file can't be tagged with the same tag multiple times
+        constraints = [models.UniqueConstraint(fields=["file", "tag"], name="unique_file_tag")]
+
+    def __str__(self):
+        return f"{self.file.name} - {self.tag.name}"
