@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     "crafts.apps.CraftsConfig",
     "dash.apps.DashConfig",
     "cloud.apps.CloudConfig",
+    "finance.apps.FinanceConfig",
 ]
 
 MIDDLEWARE = [
