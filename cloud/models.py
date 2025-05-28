@@ -53,18 +53,6 @@ class File(models.Model):
     def __str__(self):
         return f"{self.name}"
 
-    def delete(self, *args, **kwargs):
-        # If file is stored in Google Drive, delete it from there
-        if self.drive_file_id:
-            from cloud.google_drive import GoogleDriveStorage
-
-            try:
-                drive = GoogleDriveStorage()
-                drive.delete_file(self.drive_file_id)
-            except Exception as e:
-                print(f"Error deleting file from Google Drive: {e}")
-        super().delete(*args, **kwargs)
-
 
 class SharedItem(models.Model):
     PERMISSION_CHOICES = (
@@ -80,7 +68,7 @@ class SharedItem(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        shared_item = self.content.name if self.content else self.directory.name
+        shared_item = self.content.name if self.content else self.directory
         return f"{shared_item} shared with {self.user.email}"
 
 
