@@ -102,7 +102,7 @@ class BaseConsumer(WebsocketConsumer):
                             "timestamp": str(message.timestamp),
                             "type": message.type,
                             "file": f"{os.environ['SERVER_HOST']}{message.file.url}" if message.file else None,
-                        }
+                        },
                     }
                     # Send message to all participants
                     for recipient in Chat.objects.get(id=data["chat_id"]).participants.all():
@@ -110,15 +110,17 @@ class BaseConsumer(WebsocketConsumer):
                             f"user_{recipient.id}",
                             message_data,
                         )
-                    
+
                     # Log message event to admin socket using existing utility function
-                    log_admin({
-                        "event_type": "new_message",
-                        "sender": str(self.user.id),
-                        "sender_username": self.user.username,
-                        "chat_id": str(data["chat_id"]),
-                        "content": data["message"],
-                    })
+                    log_admin(
+                        {
+                            "event_type": "new_message",
+                            "sender": str(self.user.id),
+                            "sender_username": self.user.username,
+                            "chat_id": str(data["chat_id"]),
+                            "content": data["message"],
+                        }
+                    )
 
             elif data["category"] == "file_message":
                 message = Message.objects.get(id=data["message_id"])
@@ -133,22 +135,22 @@ class BaseConsumer(WebsocketConsumer):
                         "timestamp": str(message.timestamp),
                         "type": message.type,
                         "file": f"{os.environ['SERVER_HOST']}{message.file.url}" if message.file else None,
-                    }
+                    },
                 }
                 for recipient in Chat.objects.get(id=data["chat_id"]).participants.all():
                     if recipient.id is not self.user.id:
-                        async_to_sync(self.channel_layer.group_send)(
-                            f"user_{recipient.id}", message_data
-                        )
-                
+                        async_to_sync(self.channel_layer.group_send)(f"user_{recipient.id}", message_data)
+
                 # Log file message event to admin socket using existing utility function
-                log_admin({
-                    "event_type": "file_message",
-                    "sender": str(self.user.id),
-                    "sender_username": self.user.username,
-                    "chat_id": str(data["chat_id"]),
-                    "message_id": str(data["message_id"]),
-                })
+                log_admin(
+                    {
+                        "event_type": "file_message",
+                        "sender": str(self.user.id),
+                        "sender_username": self.user.username,
+                        "chat_id": str(data["chat_id"]),
+                        "message_id": str(data["message_id"]),
+                    }
+                )
             elif data["category"] == "typing":
                 chat = Chat.objects.get(id=data["chat_id"])
                 data["sender"] = self.user.id
