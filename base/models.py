@@ -12,9 +12,37 @@ class Post(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    allow_comments = models.BooleanField(default=True, help_text="Whether comments are allowed on this post")
 
     def __str__(self):
         return f"{self.id} - {self.owner.username} - {self.created_at.strftime('%Y-%m-%d %H:%M:%S')}"
+
+    def likes_count(self):
+        """Return the number of likes for this post"""
+        return self.likes.count()
+
+
+class Like(models.Model):
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="likes")
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("post", "user")  # Prevent duplicate likes
+
+    def __str__(self):
+        return f"{self.user.username} liked {self.post.id}"
+
+
+class Comment(models.Model):
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="comments")
+    owner = models.ForeignKey(User, on_delete=models.CASCADE)
+    content = models.TextField(max_length=1000)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.owner.username} - {self.created_at.strftime('%Y-%m-%d %H:%M:%S')}"
 
 
 class Task(models.Model):
