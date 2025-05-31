@@ -66,7 +66,6 @@ INSTALLED_APPS = [
     # Project specific
     "base.apps.BaseConfig",
     "chats.apps.ChatsConfig",
-    "crafts.apps.CraftsConfig",
     "dash.apps.DashConfig",
     "cloud.apps.CloudConfig",
     "finance.apps.FinanceConfig",
