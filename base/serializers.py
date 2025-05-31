@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from base.models import Event, Task
+from base.models import Task
 
 
 class TaskSerializer(serializers.ModelSerializer):
@@ -12,12 +12,3 @@ class TaskSerializer(serializers.ModelSerializer):
         validated_data["owner"] = self.context["request"].user
         return super().create(validated_data)
 
-
-class EventSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Event
-        exclude = ['owner']
-
-    def create(self, validated_data):
-        validated_data["owner"] = self.context["request"].user
-        return super().create(validated_data)
