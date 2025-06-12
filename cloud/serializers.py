@@ -34,6 +34,7 @@ class FileSerializer(serializers.ModelSerializer):
             "download_url",
             "category",
             "drive_file_id",
+            "upload_status",
         ]
         read_only_fields = [
             "id",
@@ -45,6 +46,7 @@ class FileSerializer(serializers.ModelSerializer):
             "download_url",
             "category",
             "drive_file_id",
+            "upload_status",
         ]
         extra_kwargs = {
             "encryption_key": {"write_only": True},
