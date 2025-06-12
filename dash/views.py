@@ -1,17 +1,19 @@
-from django.contrib.auth import authenticate
-from django.utils import timezone
-from django.db.models import Q
 from datetime import timedelta
-from rest_framework import permissions, status, filters
-from rest_framework.response import Response
-from rest_framework.views import APIView
+
+from django.contrib.auth import authenticate
+from django.db.models import Q
+from django.utils import timezone
+from rest_framework import filters, permissions, status
 from rest_framework.generics import ListCreateAPIView, RetrieveDestroyAPIView
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.models import User
 from chats.models import Chat, Message
 from cloud.models import File
+from cloud.serializers import FileSerializer
 from dash.serializers import DashboardUserSerializer
 
 
@@ -33,10 +35,56 @@ class LoginView(APIView):
         return Response({"error": "Invalid Credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
 
+class FilePagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
 class UserPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = 'page_size'
     max_page_size = 50
+
+
+class CloudFileListView(ListCreateAPIView):
+    serializer_class = FileSerializer
+    permission_classes = (permissions.IsAdminUser,)
+    pagination_class = FilePagination
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name', 'owner__username', 'owner__email', 'category', 'mime_type']
+    ordering_fields = ['name', 'size', 'created_at', 'owner__username']
+    
+    def get_queryset(self):
+        queryset = File.objects.select_related('owner', 'parent').all()
+        
+        # Handle owner filter
+        owner_id = self.request.query_params.get('owner', None)
+        if owner_id:
+            queryset = queryset.filter(owner_id=owner_id)
+                
+        # Handle category filter
+        category = self.request.query_params.get('category', None)
+        if category:
+            queryset = queryset.filter(category__icontains=category)
+            
+        # Handle upload status filter
+        status_filter = self.request.query_params.get('status', None)
+        if status_filter:
+            queryset = queryset.filter(upload_status=status_filter)
+            
+        # Handle sort_by parameter
+        sort_by = self.request.query_params.get('sort_by', '-created_at')
+        if sort_by:
+            queryset = queryset.order_by(sort_by)
+            
+        return queryset
+
+
+class CloudFileDetailView(RetrieveDestroyAPIView):
+    serializer_class = FileSerializer
+    permission_classes = (permissions.IsAdminUser,)
+    queryset = File.objects.select_related('owner', 'parent').all()
 
 
 class UserListView(ListCreateAPIView):
@@ -106,8 +154,8 @@ class Stats(APIView):
         }
 
         # Message activity for last 7 days (for Chat Activity chart)
-        from django.db.models.functions import TruncDate
         from django.db.models import Count
+        from django.db.models.functions import TruncDate
         message_activity_qs = (
             Message.objects.filter(timestamp__gte=now - timedelta(days=6))
             .annotate(day=TruncDate('timestamp'))
