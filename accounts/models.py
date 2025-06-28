@@ -158,7 +158,6 @@ class Follow(models.Model):
             models.Index(fields=["followed", "-created_at"]),  # For user's recent followers
             models.Index(fields=["follower", "-created_at"]),  # For user's recent following
         ]
-        # Order by most recent follows
         ordering = ["-created_at"]
 
     def __str__(self):
