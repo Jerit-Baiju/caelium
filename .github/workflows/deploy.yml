@@ -1,37 +1,67 @@
-name: Deploy to EC2
+name: Deployment CI/CD
 
+# This action runs on every push to the main branch
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
 
 jobs:
-  deploy:
+  build-and-deploy:
+    # The type of virtual machine that the job will run on
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v2
-    
-    - name: Configure AWS credentials
-      env:
-        SERVER_SSH_KEY: ${{ secrets.SERVER_PEM }}
-        SERVER_HOST: ${{ secrets.EC2_HOST }}
-        SERVER_USERNAME: ${{ secrets.EC2_USERNAME }}
-      run: |
-        mkdir -p ~/.ssh
-        echo "$SERVER_SSH_KEY" > ~/.ssh/server.pem
-        chmod 600 ~/.ssh/server.pem
-        
-    - name: Deploy to EC2
-      env:
-        SERVER_HOST: ${{ secrets.EC2_HOST }}
-        SERVER_USERNAME: ${{ secrets.EC2_USERNAME }}
-      run: |
-        ssh -i ~/.ssh/server.pem -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_HOST '
-          cd ~/caelium &&
-          git pull origin main &&
-          source env/bin/activate &&
-          pip install -r requirements.txt &&
-          python manage.py makemigrations &&
-          python manage.py migrate &&
-          sudo supervisorctl restart caelium
-        '
+      # Step 1: Check out the repository code so the workflow can access it
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------
+      # CI: Continuous Integration - Build and test the code
+      # -----------------------------------------------------------------
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          # Use the same Python version that you use in production
+          python-version: '3.12' 
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Django Tests
+        run: python manage.py test
+        # If tests fail, the workflow will stop here and report a failure
+
+      # -----------------------------------------------------------------
+      # CD: Continuous Deployment - Deploy to VPS if tests pass
+      # -----------------------------------------------------------------
+      - name: Deploy to VPS
+        # This step only runs if the previous steps (like testing) were successful
+        if: success()
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          script: |
+            # Navigate to the project directory on your VPS
+            cd ${{ secrets.PROJECT_PATH }}
+
+            # Pull the latest changes from the main branch
+            git pull origin main
+
+            # Activate your virtual environment
+            source venv/bin/activate
+
+            # Install or update Python packages
+            pip install -r requirements.txt
+
+            # Run database migrations
+            python manage.py migrate
+
+            # Collect static files
+            python manage.py collectstatic --noinput
+
+            # Restart the application server to apply changes
+            sudo supervisorctl restart caelium
