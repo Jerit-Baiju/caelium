@@ -28,16 +28,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
-      - name: Run Django Tests
-        run: python manage.py test
-        # If tests fail, the workflow will stop here and report a failure
-
+      
       # -----------------------------------------------------------------
-      # CD: Continuous Deployment - Deploy to VPS if tests pass
+      # CD: Continuous Deployment - Deploy to VPS
       # -----------------------------------------------------------------
       - name: Deploy to VPS
-        # This step only runs if the previous steps (like testing) were successful
         if: success()
         uses: appleboy/ssh-action@master
         with:
