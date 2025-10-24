@@ -8,26 +8,18 @@ from accounts.models import User
 class MediaFile(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     filename = models.CharField(max_length=255)
-    location = models.CharField(
-        max_length=255, blank=True, null=True, help_text="Location of the file in the storage system"
-    )
-    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE)
     encryption_key = models.TextField(blank=True, null=True)
     encryption_iv = models.TextField(blank=True, null=True)
-    mime_type = models.CharField(max_length=100)
+    media_hash = models.CharField(max_length=64)
     size = models.BigIntegerField()
-    file_type = models.CharField(
-        max_length=20,
-        choices=[("image", "Image"), ("video", "Video"), ("audio", "Audio"), ("document", "Document"), ("other", "Other")],
+    residing_server = models.ForeignKey(
+        "api.Server", on_delete=models.CASCADE, related_name="media_files", null=True, blank=True
     )
-    storage_tier = models.CharField(
-        max_length=20, choices=[("hot", "Hot"), ("warm", "Warm"), ("cold", "Cold")], default="hot"
-    )
-    timestamp = models.DateTimeField()
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    accessed_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.file_type.upper()} ({self.filename}) by {self.uploaded_by.username}"
+        return f"{self.filename}"
 
 
 class Directory(models.Model):
@@ -54,8 +46,12 @@ class CloudFile(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="files")
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-    parent = models.ForeignKey(Directory, on_delete=models.CASCADE, null=True, blank=True, related_name="files")
+    directory = models.ForeignKey(Directory, on_delete=models.CASCADE, null=True, blank=True, related_name="files")
     media = models.ForeignKey(MediaFile, on_delete=models.CASCADE, related_name="cloud_files", null=True, blank=True)
+    pending_upload = models.BooleanField(default=False)
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    last_accessed_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.name}"

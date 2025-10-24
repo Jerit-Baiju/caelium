@@ -1,3 +1,4 @@
+import requests
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAdminUser
@@ -5,6 +6,8 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import UntypedToken
+
+from api.models import Server
 
 
 @api_view(["POST"])
@@ -30,3 +33,17 @@ def verify_jwt_user(request):
         return Response({"detail": "Invalid token.", "error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
     except Exception as e:
         return Response({"detail": "Error verifying token.", "error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["GET"])
+def get_hps(request):
+    for server in Server.objects.order_by("priority"):
+        response = requests.get(f"{server.base_url}/api/internals/ping/", timeout=2)
+        if response.status_code == 200:
+            return Response({"base_url": server.base_url}, status=status.HTTP_200_OK)
+    return Response({"detail": "No active servers found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(["GET"])
+def ping_view(request):
+    return Response({"detail": "pong"}, status=status.HTTP_200_OK)
