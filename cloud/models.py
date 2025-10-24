@@ -8,10 +8,15 @@ from accounts.models import User
 class MediaFile(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     filename = models.CharField(max_length=255)
-    encryption_key = models.TextField(blank=True, null=True)
-    encryption_iv = models.TextField(blank=True, null=True)
-    media_hash = models.CharField(max_length=64)
-    size = models.BigIntegerField()
+    # Encryption fields
+    is_encrypted = models.BooleanField(default=False)
+    encryption_key = models.BinaryField(blank=True, null=True)  # AES-256 key (32 bytes)
+    encryption_nonce = models.BinaryField(blank=True, null=True)  # GCM nonce (12 bytes)
+    # File metadata
+    media_hash = models.CharField(max_length=64)  # SHA-256 hash of original file
+    size = models.BigIntegerField()  # Original file size
+    encrypted_size = models.BigIntegerField(null=True, blank=True)  # Encrypted file size (includes GCM tag)
+    mime_type = models.CharField(max_length=255, blank=True, null=True)
     residing_server = models.ForeignKey(
         "api.Server", on_delete=models.CASCADE, related_name="media_files", null=True, blank=True
     )

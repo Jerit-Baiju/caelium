@@ -183,6 +183,14 @@ MEDIA_URL = os.environ["media_url"] if DEBUG else "https://api.caelium.co/media/
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# File Upload Settings
+# Files under 50MB are loaded into memory, larger files are streamed to temporary files
+FILE_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB - files larger than this use disk streaming
+# Maximum total request size (for safety, allow 5.5GB to account for multipart overhead)
+DATA_UPLOAD_MAX_MEMORY_SIZE = None  # No limit on request body size
+# Only allow one file per upload request
+DATA_UPLOAD_MAX_NUMBER_FILES = 1
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
