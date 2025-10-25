@@ -30,6 +30,8 @@ CSRF_TRUSTED_ORIGINS = [
     "http://192.168.43.157:8000",
     "http://192.168.43.157:3000",
     "http://localhost:3000",
+    "https://cs1.caelium.co",
+    "https://cs2.caelium.co"
 ]
 
 # Add custom allowed host from environment variable if it exists
