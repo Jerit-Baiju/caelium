@@ -1,6 +1,5 @@
 import os
 import subprocess
-from http import server
 
 import requests
 from django.conf import settings
@@ -56,17 +55,31 @@ def update_release_view(request):
         if not os.path.exists(UPDATE_SCRIPT_PATH):
             return Response({"error": "Update script not found on server."}, status=status.HTTP_424_FAILED_DEPENDENCY)
         try:
-            # Run the script in the background so the HTTP request returns immediately.
-            # We don't wait for it to finish.
+            # Run the script and wait for it to complete
             # Ensure the script is executable: chmod +x update.sh
-            subprocess.Popen([UPDATE_SCRIPT_PATH], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            result = subprocess.run(
+                [UPDATE_SCRIPT_PATH], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False
+            )
+
             current_server = Server.objects.filter(base_url=os.environ["BASE_URL"]).first()
             if current_server:
                 current_server.release_update_status = True
                 current_server.save()
             else:
                 return Response({"error": "Current server not found."}, status=status.HTTP_404_NOT_FOUND)
-            return Response({"success": True, "message": "Update process started in background."})
+
+            if result.returncode == 0:
+                return Response({"success": True, "message": "Update completed successfully.", "output": result.stdout})
+            else:
+                return Response(
+                    {
+                        "success": False,
+                        "message": "Update script failed.",
+                        "error": result.stderr,
+                        "returncode": result.returncode,
+                    },
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
         except Exception as e:
             # Log the error e
             return Response({"error": f"Failed to start update script: {e}"})
