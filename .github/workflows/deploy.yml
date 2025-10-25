@@ -1,13 +1,14 @@
-# This workflow triggers on a new published release.
+# This workflow triggers on commits to the main branch.
 # It deploys to your primary server (S1) and then securely calls your
 # Appwrite function (server_update) to orchestrate updates on all other servers.
 
 name: Deploy on Release
 
-# Trigger only on published releases
+# Trigger on pushes to main branch
 on:
-  release:
-    types: [published]
+  push:
+    branches:
+      - main
 
 jobs:
   deploy:
@@ -18,11 +19,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. Get release tag
-      - name: Set release version
+      # 2. Get branch name
+      - name: Set deployment version
         run: |
-          echo "release_tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-          echo "Deploying version: ${GITHUB_REF#refs/tags/}"
+          echo "branch_name=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
+          echo "Deploying from branch: ${GITHUB_REF#refs/heads/}"
 
       # 3. Deploy to Primary Server (CS1)
       # This is your existing deployment step for the main server.
@@ -35,7 +36,7 @@ jobs:
           script: |
             cd ${{ secrets.PROJECT_PATH }}
             git fetch --all
-            git checkout ${{ env.release_tag }}
+            git pull origin main
             source venv/bin/activate
             pip install -r requirements.txt
             python manage.py migrate
