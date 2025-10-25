@@ -60,7 +60,7 @@ def update_release_view(request):
             # We don't wait for it to finish.
             # Ensure the script is executable: chmod +x update.sh
             subprocess.Popen([UPDATE_SCRIPT_PATH], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            current_server = Server.objects.filter(base_url=settings.BASE_URL).first()
+            current_server = Server.objects.filter(base_url=os.environ["BASE_URL"]).first()
             if current_server:
                 current_server.release_update_status = True
                 current_server.save()
