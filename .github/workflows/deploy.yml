@@ -49,11 +49,6 @@ jobs:
       - name: Trigger Server Update Function
         run: |
           echo "Calling Appwrite function to orchestrate updates for all servers..."
-          curl -X POST "${{ secrets.APPWRITE_ENDPOINT }}/v1/functions/${{ secrets.APPWRITE_FUNCTION_ID }}/executions" \
-          -H "Content-Type: application/json" \
-          -H "X-Appwrite-Project: ${{ secrets.APPWRITE_PROJECT_ID }}" \
-          -H "X-Appwrite-Key: ${{ secrets.APPWRITE_API_KEY }}" \
-          -d "{}"
-          
-          # We use -d "{}" to send an empty JSON payload, which is required for POST.
+          curl --location '${{ secrets.APPWRITE_ENDPOINT }}' \
+          --form 'secret_key="${{ secrets.SECRET_KEY }}"' \
           # The function runs asynchronously; this just triggers it.
