@@ -55,12 +55,12 @@ def update_release_view(request):
         if not os.path.exists(UPDATE_SCRIPT_PATH):
             return Response({"error": "Update script not found on server."}, status=status.HTTP_424_FAILED_DEPENDENCY)
         try:
-            # Run the script and wait for it to complete
-            # Ensure the script is executable: chmod +x update.sh
             result = subprocess.run(
-                [UPDATE_SCRIPT_PATH], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False
+                [UPDATE_SCRIPT_PATH],
+                capture_output=True,
+                text=True,
+                timeout=300,
             )
-
             current_server = Server.objects.filter(base_url=os.environ["BASE_URL"]).first()
             if current_server:
                 current_server.release_update_status = True
