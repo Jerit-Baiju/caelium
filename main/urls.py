@@ -14,7 +14,7 @@ urlpatterns = [
     path("api/auth/", include("accounts.urls")),
     path("api/chats/", include("chats.urls")),
     path("api/cloud/", include("cloud.urls")),
-    path('api/internals/', include('api.urls')),
+    path('api/core/', include('api.urls')),
     path("dash/", include("dash.urls")),
     path("", lambda request: redirect("admin/", permanent=False)),
 ]

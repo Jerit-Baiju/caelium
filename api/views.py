@@ -1,4 +1,9 @@
+import os
+import subprocess
+from http import server
+
 import requests
+from django.conf import settings
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAdminUser
@@ -8,6 +13,7 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import UntypedToken
 
 from api.models import Server
+from api.serializers import ServerSerializer
 
 
 @api_view(["POST"])
@@ -36,14 +42,92 @@ def verify_jwt_user(request):
 
 
 @api_view(["GET"])
-def get_hps(request):
-    for server in Server.objects.order_by("priority"):
-        response = requests.get(f"{server.base_url}/api/internals/ping/", timeout=2)
-        if response.status_code == 200:
-            return Response({"base_url": server.base_url}, status=status.HTTP_200_OK)
-    return Response({"detail": "No active servers found."}, status=status.HTTP_404_NOT_FOUND)
+def ping_view(request):
+    return Response({"detail": "pong"}, status=status.HTTP_200_OK)
+
+
+@api_view(["POST"])
+def update_release_view(request):
+    if "secret" not in request.data:
+        return Response({"error": "Secret not provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+    if request.data["secret"] == settings.SECRET_KEY:
+        UPDATE_SCRIPT_PATH = os.path.join(settings.BASE_DIR, "update.sh")
+        if not os.path.exists(UPDATE_SCRIPT_PATH):
+            return Response({"error": "Update script not found on server."}, status=status.HTTP_424_FAILED_DEPENDENCY)
+        try:
+            # Run the script in the background so the HTTP request returns immediately.
+            # We don't wait for it to finish.
+            # Ensure the script is executable: chmod +x update.sh
+            subprocess.Popen([UPDATE_SCRIPT_PATH], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            current_server = Server.objects.filter(base_url=settings.BASE_URL).first()
+            if current_server:
+                current_server.release_update_status = True
+                current_server.save()
+            else:
+                return Response({"error": "Current server not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"success": True, "message": "Update process started in background."})
+        except Exception as e:
+            # Log the error e
+            return Response({"error": f"Failed to start update script: {e}"})
+    else:
+        return Response({"error": "Invalid secret."}, status=status.HTTP_403_FORBIDDEN)
+
+
+@api_view(["POST"])
+def update_release_failure_view(request):
+    if "secret" not in request.data or "server_id" not in request.data:
+        return Response({"error": "Secret or server_id not provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+    if request.data["secret"] == settings.SECRET_KEY:
+        try:
+            server = Server.objects.get(id=request.data["server_id"])
+            server.release_update_status = False
+            server.save()
+            return Response({"success": True, "message": f"Server {server.name} marked as failed to update."})
+        except Server.DoesNotExist:
+            return Response({"error": "Server not found."}, status=status.HTTP_404_NOT_FOUND)
+    else:
+        return Response({"error": "Invalid secret."}, status=status.HTTP_403_FORBIDDEN)
+
+
+@api_view(["POST"])
+def update_server_status(request):
+    if "secret" not in request.data or "server_id" not in request.data or "status" not in request.data:
+        return Response({"error": "Secret, server_id, or status not provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+    if request.data["secret"] == settings.SECRET_KEY:
+        try:
+            server = Server.objects.get(id=request.data["server_id"])
+            server.active_status = request.data["status"]
+            server.save()
+            return Response({"success": True, "message": f"Server {server.name} status updated."})
+        except Server.DoesNotExist:
+            return Response({"error": "Server not found."}, status=status.HTTP_404_NOT_FOUND)
+    else:
+        return Response({"error": "Invalid secret."}, status=status.HTTP_403_FORBIDDEN)
+
+
+@api_view(["POST"])
+def public_server_error_handler(request):
+    if "server_id" not in request.data:
+        return Response({"error": "server_id not provided."}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        server = Server.objects.get(id=request.data["server_id"])
+        if server.active_status:
+            resp = requests.get(f"{server.base_url}/api/core/ping/", timeout=5)
+            if resp.status_code != 200:
+                server.active_status = False
+                server.save()
+                return Response({"success": True, "message": f"Server {server.name} marked as inactive due to error."})
+            return Response({"success": True, "message": f"Server {server.name} error handled."})
+        else:
+            return Response({"message": f"Server {server.name} is already inactive."})
+    except Server.DoesNotExist:
+        return Response({"error": "Server not found."}, status=status.HTTP_404_NOT_FOUND)
 
 
 @api_view(["GET"])
-def ping_view(request):
-    return Response({"detail": "pong"}, status=status.HTTP_200_OK)
+def list_servers(request):
+    server_data = ServerSerializer(Server.objects.all(), many=True).data
+    return Response(server_data, status=status.HTTP_200_OK)

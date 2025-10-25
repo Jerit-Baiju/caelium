@@ -1,10 +1,13 @@
 import os
+from pathlib import Path
 
+from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models.signals import post_migrate
 from django.dispatch import receiver
 
-from .models import User
+from accounts.models import User
+from cloud.utils.media import create_media_file
 
 
 @receiver(post_migrate)
@@ -25,11 +28,14 @@ def create_caelium_user(sender, **kwargs):
     try:
         user = User.objects.get(username="caelium")
     except ObjectDoesNotExist:
+
+        avatar = create_media_file("caelium.png", "avatars")
+
         user = User.objects.create(
             username="caelium",
             email="app@caelium.co",
             name="Caelium",
-            avatar="defaults/caelium.png",
+            avatar=avatar,
             location="Cloud",
             gender="Other",
             bio="Welcome to the Caelium platform!",

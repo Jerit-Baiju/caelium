@@ -1,57 +1,59 @@
-name: Deployment CI/CD
+# This workflow triggers on a new published release.
+# It deploys to your primary server (S1) and then securely calls your
+# Appwrite function (server_update) to orchestrate updates on all other servers.
 
-# This action runs on every push to the main branch
+name: Deploy on Release
+
+# Trigger only on published releases
 on:
-  push:
-    branches: [ "main" ]
+  release:
+    types: [published]
 
 jobs:
-  build-and-deploy:
-    # The type of virtual machine that the job will run on
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Check out the repository code so the workflow can access it
-      - name: Checkout Code
+      # 1. Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      # -----------------------------------------------------------------
-      # CI: Continuous Integration - Build and test the code
-      # -----------------------------------------------------------------
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          # Use the same Python version that you use in production
-          python-version: '3.12' 
-          
-      # -----------------------------------------------------------------
-      # CD: Continuous Deployment - Deploy to VPS
-      # -----------------------------------------------------------------
-      - name: Deploy to VPS
-        if: success()
+      # 2. Get release tag
+      - name: Set release version
+        run: |
+          echo "release_tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          echo "Deploying version: ${GITHUB_REF#refs/tags/}"
+
+      # 3. Deploy to Primary Server (CS1)
+      # This is your existing deployment step for the main server.
+      - name: Deploy to the main server
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
           script: |
-            # Navigate to the project directory on your VPS
             cd ${{ secrets.PROJECT_PATH }}
-
-            # Pull the latest changes from the main branch
-            git pull origin main
-
-            # Activate your virtual environment
+            git fetch --all
+            git checkout ${{ env.release_tag }}
             source venv/bin/activate
-
-            # Install or update Python packages
             pip install -r requirements.txt
-
-            # Run database migrations
             python manage.py migrate
-
-            # Collect static files
             python manage.py collectstatic --noinput
-
-            # Restart the application server to apply changes
             sudo supervisorctl restart caelium
+            echo "Primary server S1 deployed successfully."
+
+      # 4. Trigger Appwrite Update Function (NEW)
+      # This step securely calls your Appwrite function to tell it to
+      # update all other servers listed in its database.
+      - name: Trigger Server Update Function
+        run: |
+          echo "Calling Appwrite function to orchestrate updates for all servers..."
+          curl -X POST "${{ secrets.APPWRITE_ENDPOINT }}/v1/functions/${{ secrets.APPWRITE_FUNCTION_ID }}/executions" \
+          -H "Content-Type: application/json" \
+          -H "X-Appwrite-Project: ${{ secrets.APPWRITE_PROJECT_ID }}" \
+          -H "X-Appwrite-Key: ${{ secrets.APPWRITE_API_KEY }}" \
+          -d "{}"
+          
+          # We use -d "{}" to send an empty JSON payload, which is required for POST.
+          # The function runs asynchronously; this just triggers it.

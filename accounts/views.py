@@ -3,7 +3,6 @@ import os
 import jwt
 import requests
 from django.conf import settings
-from django.core.files.base import ContentFile
 from django.db import IntegrityError
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
@@ -18,6 +17,7 @@ from accounts.models import FCMToken, Follow, GoogleToken, User
 from accounts.serializers import FCMTokenSerializer, FollowListSerializer, FollowSerializer, UserSerializer
 from base.utils import log_admin
 from chats.models import Chat, Message
+from cloud.utils.media import create_media_file
 
 
 class GoogleLoginUrl(APIView):
@@ -122,13 +122,12 @@ class GoogleLogin(APIView):
                         ),
                     )
 
-                    # Attempt to download the user's avatar if available
-                    try:
-                        response = requests.get(data["picture"], timeout=10)
-                        if response.status_code == 200:
-                            user.avatar.save(f"{email}.png", ContentFile(response.content), save=True)
-                    except requests.exceptions.RequestException as e:
-                        print(f"Error downloading avatar: {e}")
+                    # Attempt to download the user's Google avatar if available
+                    if "picture" in data:
+                        avatar = create_media_file(file=data["picture"], folder="avatars", filename=f"{email}.png")
+                        if avatar:
+                            user.avatar = avatar
+                            user.save()
 
             except IntegrityError:
                 user = User.objects.get(email=email)

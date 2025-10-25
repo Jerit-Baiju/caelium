@@ -8,18 +8,9 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from cloud.encryption import (
-    decrypt_file_memory,
-    encrypt_file_stream,
-    generate_encryption_key,
-    generate_nonce,
-)
 from cloud.models import CloudFile, Directory, MediaFile
-from cloud.serializers import (
-    BreadcrumbSerializer,
-    CloudFileSerializer,
-    DirectorySerializer,
-)
+from cloud.serializers import BreadcrumbSerializer, CloudFileSerializer, DirectorySerializer
+from cloud.utils.encryption import decrypt_file_memory, encrypt_file_stream, generate_encryption_key, generate_nonce
 
 
 @api_view(["GET"])

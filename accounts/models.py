@@ -45,11 +45,8 @@ class User(AbstractUser):
     username = models.CharField(max_length=150, unique=True, null=True, blank=True)
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=24)
-    avatar = models.ImageField(
-        upload_to="avatars/",
-        default="defaults/avatar.png",
-        null=True,
-        blank=True,
+    avatar = models.ForeignKey(
+        "cloud.MediaFile", on_delete=models.SET_NULL, null=True, blank=True, related_name="user_avatar"
     )
     location = models.CharField(max_length=100, null=True, blank=True)
     gender = models.CharField(max_length=6, choices=GENDER_CHOICES, null=True, blank=True, default="Other")

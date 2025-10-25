@@ -12,7 +12,7 @@ constantly==23.10.4
 cryptography==44.0.2
 daphne==4.1.2
 dill==0.4.0
-Django==5.2
+Django==5.2.7
 django-cors-headers==4.7.0
 djangorestframework==3.16.0
 djangorestframework_simplejwt==5.5.0
@@ -38,13 +38,13 @@ pyasn1==0.6.1
 pyasn1_modules==0.4.2
 pycparser==2.22
 PyJWT==2.9.0
-pylint==3.3.7
 pyOpenSSL==25.0.0
 pyparsing==3.2.3
 python-dotenv==1.1.0
 requests==2.32.3
 requests-oauthlib==2.0.0
 rsa==4.9
+ruff==0.14.2
 service-identity==24.2.0
 setuptools==78.1.0
 sqlparse==0.5.3
