@@ -42,7 +42,7 @@ def verify_jwt_user(request):
 
 @api_view(["GET"])
 def ping_view(request):
-    return Response({"detail": "pong ok"}, status=status.HTTP_200_OK)
+    return Response({"detail": "pong"}, status=status.HTTP_200_OK)
 
 
 @api_view(["POST"])
