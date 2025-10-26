@@ -65,21 +65,9 @@ def update_release_view(request):
             if current_server:
                 current_server.release_update_status = True
                 current_server.save()
-            else:
-                return Response({"error": "Current server not found."}, status=status.HTTP_404_NOT_FOUND)
-
-            if result.returncode == 0:
                 return Response({"success": True, "message": "Update completed successfully.", "output": result.stdout})
             else:
-                return Response(
-                    {
-                        "success": False,
-                        "message": "Update script failed.",
-                        "error": result.stderr,
-                        "returncode": result.returncode,
-                    },
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                )
+                return Response({"error": "Current server not found."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             # Log the error e
             return Response({"error": f"Failed to start update script: {e}"})
