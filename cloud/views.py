@@ -1,6 +1,4 @@
 from pathlib import Path
-import tempfile
-import json
 
 from django.conf import settings
 from django.core.cache import cache
@@ -490,7 +488,7 @@ def finalize_chunked_upload(request, upload_id):
             for i in range(upload_metadata["total_chunks"]):
                 chunk_path = temp_dir / f"chunk_{i}"
                 if not chunk_path.exists():
-                    raise Exception(f"Chunk {i} not found")
+                    raise FileNotFoundError(f"Chunk {i} not found")
                 with open(chunk_path, "rb") as chunk_file:
                     assembled_file.write(chunk_file.read())
 
@@ -501,6 +499,7 @@ def finalize_chunked_upload(request, upload_id):
                 self.name = name
                 self.content_type = content_type
                 self._file = None
+                self._size = path.stat().st_size
 
             def __enter__(self):
                 self._file = open(self.path, "rb")
@@ -515,9 +514,15 @@ def finalize_chunked_upload(request, upload_id):
                     self._file = open(self.path, "rb")
                 return self._file.read(size)
 
+            def seek(self, position, whence=0):
+                if not self._file:
+                    self._file = open(self.path, "rb")
+                return self._file.seek(position, whence)
+
             def chunks(self, chunk_size=8192):
                 if not self._file:
                     self._file = open(self.path, "rb")
+                self._file.seek(0)
                 while True:
                     data = self._file.read(chunk_size)
                     if not data:
@@ -526,7 +531,12 @@ def finalize_chunked_upload(request, upload_id):
 
             @property
             def size(self):
-                return self.path.stat().st_size
+                return self._size
+
+            def close(self):
+                if self._file:
+                    self._file.close()
+                    self._file = None
 
         assembled_file_obj = AssembledFile(
             assembled_file_path,
@@ -546,12 +556,31 @@ def finalize_chunked_upload(request, upload_id):
                 pass
 
         # Create media file
-        media_file = create_media_file(
-            file=assembled_file_obj,
-            folder="cloud",
-            owner=user,
-            should_encrypt=upload_metadata["should_encrypt"]
-        )
+        try:
+            media_file = create_media_file(
+                file=assembled_file_obj,
+                folder="cloud",
+                owner=user,
+                should_encrypt=upload_metadata["should_encrypt"]
+            )
+        finally:
+            # Ensure file is closed
+            assembled_file_obj.close()
+
+        # Check if media_file creation failed
+        if not isinstance(media_file, MediaFile):
+            # Clean up temporary files
+            import shutil
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            cache.delete(f"chunked_upload_{upload_id}")
+            
+            if isinstance(media_file, Response):
+                return media_file
+            else:
+                return Response(
+                    {"error": "Failed to create media file"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
 
         # Create CloudFile entry
         cloud_file = CloudFile.objects.create(
