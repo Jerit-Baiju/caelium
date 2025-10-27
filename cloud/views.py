@@ -1,6 +1,9 @@
 from pathlib import Path
+import tempfile
+import json
 
 from django.conf import settings
+from django.core.cache import cache
 from django.http import FileResponse, HttpResponse
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -275,3 +278,314 @@ def download_file(request, file_id):
 
     except Exception as e:
         return Response({"error": f"Failed to download file: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def initiate_chunked_upload(request):
+    """
+    Initiate a chunked file upload session.
+    Accepts:
+        - filename: The name of the file
+        - file_size: Total size of the file in bytes
+        - total_chunks: Total number of chunks that will be uploaded
+        - encrypt: Boolean - whether to encrypt the file
+        - directory: UUID of parent directory (optional)
+
+    Returns:
+        - upload_id: Unique identifier for this upload session
+    """
+    user = request.user
+
+    filename = request.data.get("filename")
+    file_size = request.data.get("file_size")
+    total_chunks = request.data.get("total_chunks")
+    should_encrypt = request.data.get("encrypt", False)
+    directory_id = request.data.get("directory", None)
+
+    if not all([filename, file_size, total_chunks]):
+        return Response(
+            {"error": "filename, file_size, and total_chunks are required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Validate directory if provided
+    parent_directory = None
+    if directory_id:
+        try:
+            parent_directory = Directory.objects.get(id=directory_id, owner=user)
+        except Directory.DoesNotExist:
+            return Response(
+                {"error": "Directory not found or access denied"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+    # Generate unique upload ID
+    import uuid
+    upload_id = str(uuid.uuid4())
+
+    # Store upload metadata in cache (expires in 24 hours)
+    upload_metadata = {
+        "user_id": str(user.id),
+        "filename": filename,
+        "file_size": int(file_size),
+        "total_chunks": int(total_chunks),
+        "should_encrypt": should_encrypt,
+        "directory_id": directory_id,
+        "chunks_received": [],
+        "created_at": str(settings.USE_TZ),
+    }
+
+    cache.set(f"chunked_upload_{upload_id}", upload_metadata, timeout=86400)  # 24 hours
+
+    # Create temporary directory for chunks
+    temp_dir = Path(settings.MEDIA_ROOT) / "temp_chunks" / upload_id
+    temp_dir.mkdir(parents=True, exist_ok=True)
+
+    return Response(
+        {
+            "success": True,
+            "upload_id": upload_id,
+            "message": "Chunked upload initiated",
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def upload_chunk(request, upload_id):
+    """
+    Upload a single chunk of a file.
+    Accepts:
+        - chunk: The chunk file data
+        - chunk_number: The index of this chunk (0-based)
+
+    Returns:
+        - success status and chunk number confirmation
+    """
+    user = request.user
+
+    # Retrieve upload metadata from cache
+    upload_metadata = cache.get(f"chunked_upload_{upload_id}")
+
+    if not upload_metadata:
+        return Response(
+            {"error": "Upload session not found or expired"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # Verify user ownership
+    if str(user.id) != upload_metadata["user_id"]:
+        return Response(
+            {"error": "Unauthorized"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    chunk = request.FILES.get("chunk")
+    chunk_number = request.data.get("chunk_number")
+
+    if not chunk or chunk_number is None:
+        return Response(
+            {"error": "chunk and chunk_number are required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        chunk_number = int(chunk_number)
+    except ValueError:
+        return Response(
+            {"error": "chunk_number must be an integer"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Validate chunk number
+    if chunk_number < 0 or chunk_number >= upload_metadata["total_chunks"]:
+        return Response(
+            {"error": "Invalid chunk_number"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Save chunk to temporary directory
+    temp_dir = Path(settings.MEDIA_ROOT) / "temp_chunks" / upload_id
+    chunk_path = temp_dir / f"chunk_{chunk_number}"
+
+    try:
+        with open(chunk_path, "wb") as f:
+            for data in chunk.chunks():
+                f.write(data)
+
+        # Update metadata with received chunk
+        if chunk_number not in upload_metadata["chunks_received"]:
+            upload_metadata["chunks_received"].append(chunk_number)
+            upload_metadata["chunks_received"].sort()
+            cache.set(f"chunked_upload_{upload_id}", upload_metadata, timeout=86400)
+
+        return Response(
+            {
+                "success": True,
+                "chunk_number": chunk_number,
+                "chunks_received": len(upload_metadata["chunks_received"]),
+                "total_chunks": upload_metadata["total_chunks"],
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    except Exception as e:
+        return Response(
+            {"error": f"Failed to save chunk: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def finalize_chunked_upload(request, upload_id):
+    """
+    Finalize a chunked upload by assembling all chunks into final file.
+    Creates the MediaFile and CloudFile entries.
+
+    Returns:
+        - CloudFile data
+    """
+    user = request.user
+
+    # Retrieve upload metadata from cache
+    upload_metadata = cache.get(f"chunked_upload_{upload_id}")
+
+    if not upload_metadata:
+        return Response(
+            {"error": "Upload session not found or expired"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # Verify user ownership
+    if str(user.id) != upload_metadata["user_id"]:
+        return Response(
+            {"error": "Unauthorized"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # Check all chunks received
+    if len(upload_metadata["chunks_received"]) != upload_metadata["total_chunks"]:
+        return Response(
+            {
+                "error": "Not all chunks received",
+                "chunks_received": len(upload_metadata["chunks_received"]),
+                "total_chunks": upload_metadata["total_chunks"],
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    temp_dir = Path(settings.MEDIA_ROOT) / "temp_chunks" / upload_id
+
+    try:
+        # Create a temporary file to assemble chunks
+        import mimetypes
+        mime_type = mimetypes.guess_type(upload_metadata["filename"])[0] or "application/octet-stream"
+
+        # Assemble chunks into a single temporary file
+        assembled_file_path = temp_dir / "assembled"
+        with open(assembled_file_path, "wb") as assembled_file:
+            for i in range(upload_metadata["total_chunks"]):
+                chunk_path = temp_dir / f"chunk_{i}"
+                if not chunk_path.exists():
+                    raise Exception(f"Chunk {i} not found")
+                with open(chunk_path, "rb") as chunk_file:
+                    assembled_file.write(chunk_file.read())
+
+        # Create a file-like object for create_media_file
+        class AssembledFile:
+            def __init__(self, path, name, content_type):
+                self.path = path
+                self.name = name
+                self.content_type = content_type
+                self._file = None
+
+            def __enter__(self):
+                self._file = open(self.path, "rb")
+                return self
+
+            def __exit__(self, *args):
+                if self._file:
+                    self._file.close()
+
+            def read(self, size=-1):
+                if not self._file:
+                    self._file = open(self.path, "rb")
+                return self._file.read(size)
+
+            def chunks(self, chunk_size=8192):
+                if not self._file:
+                    self._file = open(self.path, "rb")
+                while True:
+                    data = self._file.read(chunk_size)
+                    if not data:
+                        break
+                    yield data
+
+            @property
+            def size(self):
+                return self.path.stat().st_size
+
+        assembled_file_obj = AssembledFile(
+            assembled_file_path,
+            upload_metadata["filename"],
+            mime_type
+        )
+
+        # Get directory if specified
+        parent_directory = None
+        if upload_metadata["directory_id"]:
+            try:
+                parent_directory = Directory.objects.get(
+                    id=upload_metadata["directory_id"],
+                    owner=user
+                )
+            except Directory.DoesNotExist:
+                pass
+
+        # Create media file
+        media_file = create_media_file(
+            file=assembled_file_obj,
+            folder="cloud",
+            owner=user,
+            should_encrypt=upload_metadata["should_encrypt"]
+        )
+
+        # Create CloudFile entry
+        cloud_file = CloudFile.objects.create(
+            name=upload_metadata["filename"],
+            owner=user,
+            directory=parent_directory,
+            media=media_file
+        )
+
+        # Clean up temporary files
+        import shutil
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+        # Clear cache
+        cache.delete(f"chunked_upload_{upload_id}")
+
+        # Return success response
+        serializer = CloudFileSerializer(cloud_file)
+        return Response(
+            {
+                "success": True,
+                "message": "File uploaded successfully",
+                "file": serializer.data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    except Exception as e:
+        # Clean up on error
+        import shutil
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        cache.delete(f"chunked_upload_{upload_id}")
+
+        return Response(
+            {"error": f"Failed to finalize upload: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
