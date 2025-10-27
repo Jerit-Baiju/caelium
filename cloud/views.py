@@ -1,4 +1,3 @@
-import hashlib
 from pathlib import Path
 
 from django.conf import settings
@@ -10,7 +9,8 @@ from rest_framework.response import Response
 
 from cloud.models import CloudFile, Directory, MediaFile
 from cloud.serializers import BreadcrumbSerializer, CloudFileSerializer, DirectorySerializer
-from cloud.utils.encryption import decrypt_file_memory, encrypt_file_stream, generate_encryption_key, generate_nonce
+from cloud.utils.encryption import decrypt_file_memory
+from cloud.utils.media import create_media_file
 
 
 @api_view(["GET"])
@@ -95,14 +95,6 @@ def upload_file(request):
     if not uploaded_file:
         return Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Check file size (5GB limit)
-    MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024  # 5GB in bytes
-    if uploaded_file.size > MAX_FILE_SIZE:
-        return Response(
-            {"error": f"File size exceeds maximum limit of 5GB. File size: {uploaded_file.size / (1024**3):.2f}GB"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
     # Get parameters
     should_encrypt = request.POST.get("encrypt", "false").lower() == "true"
     directory_id = request.POST.get("directory", None)
@@ -117,57 +109,8 @@ def upload_file(request):
             return Response({"error": "Directory not found or access denied"}, status=status.HTTP_404_NOT_FOUND)
 
     try:
-        # Calculate hash of original file
-        sha256 = hashlib.sha256()
-        original_size = 0
 
-        # Read file in chunks to calculate hash
-        for chunk in uploaded_file.chunks():
-            sha256.update(chunk)
-            original_size += len(chunk)
-
-        file_hash = sha256.hexdigest()
-
-        # Reset file pointer
-        uploaded_file.seek(0)
-
-        # Create MediaFile instance
-        media_file = MediaFile(
-            filename=uploaded_file.name,
-            media_hash=file_hash,
-            size=original_size,
-            mime_type=uploaded_file.content_type or "application/octet-stream",
-            is_encrypted=should_encrypt,
-        )
-        media_file.save()
-
-        # Create directory for this file: media/cloud/{uuid}/
-        file_dir = Path(settings.MEDIA_ROOT) / "cloud" / str(media_file.id)
-        file_dir.mkdir(parents=True, exist_ok=True)
-
-        # Determine output filename
-        output_filename = "encrypted" if should_encrypt else uploaded_file.name
-        output_path = file_dir / output_filename
-
-        if should_encrypt:
-            # Generate encryption key and nonce
-            encryption_key = generate_encryption_key()
-            nonce = generate_nonce()
-
-            # Encrypt and save file
-            with open(output_path, "wb") as output_file:
-                encrypted_size = encrypt_file_stream(uploaded_file, output_file, encryption_key, nonce)
-
-            # Store encryption parameters
-            media_file.encryption_key = encryption_key
-            media_file.encryption_nonce = nonce
-            media_file.encrypted_size = encrypted_size
-            media_file.save()
-        else:
-            # Save file without encryption
-            with open(output_path, "wb") as output_file:
-                for chunk in uploaded_file.chunks():
-                    output_file.write(chunk)
+        media_file = create_media_file(file=uploaded_file, folder="cloud", owner=user, should_encrypt=should_encrypt)
 
         # Create CloudFile entry
         cloud_file = CloudFile.objects.create(name=custom_name, owner=user, directory=parent_directory, media=media_file)
@@ -197,21 +140,53 @@ def upload_file(request):
 @permission_classes([IsAuthenticated])
 def preview_file(request, file_id):
     """
-    Preview a file (with decryption if needed).
+    Preview a media file (with decryption if needed).
     Returns the file content for preview purposes.
+    Works directly with MediaFile ID.
     """
     user = request.user
 
     try:
-        cloud_file = CloudFile.objects.get(id=file_id, owner=user, is_deleted=False)
-    except CloudFile.DoesNotExist:
-        return Response({"error": "File not found or access denied"}, status=status.HTTP_404_NOT_FOUND)
+        media = MediaFile.objects.get(id=file_id, is_deleted=False)
 
-    if not cloud_file.media:
-        return Response({"error": "File media not found"}, status=status.HTTP_404_NOT_FOUND)
+        # Debug information
+        debug_info = {
+            "file_exists": True,
+            "media_id": str(media.id),
+            "media_filename": media.filename,
+            "media_owner_id": str(media.owner.id),
+            "media_owner_email": media.owner.email,
+            "current_user_id": str(user.id),
+            "current_user_email": user.email,
+            "is_owner": media.owner == user,
+            "media_privacy": media.privacy,
+            "media_is_encrypted": media.is_encrypted,
+            "is_deleted": media.is_deleted,
+        }
 
-    media = cloud_file.media
-    file_path = Path(settings.MEDIA_ROOT) / "cloud" / str(media.id)
+        # Check access: owner or public media file
+        if media.owner != user and media.privacy != "public":
+            debug_info["access_denied_reason"] = "Not owner and file is not public"
+            return Response(
+                {"error": "File not found or access denied", "debug": debug_info}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        debug_info["access_granted"] = True
+
+    except MediaFile.DoesNotExist:
+        return Response(
+            {
+                "error": "File not found or access denied",
+                "debug": {
+                    "file_exists": False,
+                    "file_id": file_id,
+                    "current_user_id": str(user.id),
+                    "current_user_email": user.email,
+                },
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    file_path = Path(settings.MEDIA_ROOT) / media.folder / str(media.id)
 
     if media.is_encrypted:
         encrypted_file = file_path / "encrypted"
@@ -240,8 +215,6 @@ def preview_file(request, file_id):
         # Update accessed_at timestamp
         media.accessed_at = None  # Django will set auto_now field
         media.save()
-        cloud_file.last_accessed_at = None
-        cloud_file.save()
 
         return response
 
@@ -253,20 +226,21 @@ def preview_file(request, file_id):
 @permission_classes([IsAuthenticated])
 def download_file(request, file_id):
     """
-    Download a file (with decryption if needed).
+    Download a media file (with decryption if needed).
     Returns the file for download.
+    Works directly with MediaFile ID.
     """
     user = request.user
 
     try:
-        cloud_file = CloudFile.objects.get(id=file_id, owner=user, is_deleted=False)
-    except CloudFile.DoesNotExist:
+        media = MediaFile.objects.get(id=file_id, is_deleted=False)
+
+        # Check access: owner or public media file
+        if media.owner != user and media.privacy != "public":
+            return Response({"error": "File not found or access denied"}, status=status.HTTP_404_NOT_FOUND)
+
+    except MediaFile.DoesNotExist:
         return Response({"error": "File not found or access denied"}, status=status.HTTP_404_NOT_FOUND)
-
-    if not cloud_file.media:
-        return Response({"error": "File media not found"}, status=status.HTTP_404_NOT_FOUND)
-
-    media = cloud_file.media
     file_path = Path(settings.MEDIA_ROOT) / "cloud" / str(media.id)
 
     if media.is_encrypted:
@@ -291,13 +265,11 @@ def download_file(request, file_id):
             # Return file directly
             response = FileResponse(open(encrypted_file, "rb"), content_type=media.mime_type or "application/octet-stream")
 
-        response["Content-Disposition"] = f'attachment; filename="{cloud_file.name}"'
+        response["Content-Disposition"] = f'attachment; filename="{media.filename}"'
 
         # Update accessed_at timestamp
         media.accessed_at = None  # Django will set auto_now field
         media.save()
-        cloud_file.last_accessed_at = None
-        cloud_file.save()
 
         return response
 

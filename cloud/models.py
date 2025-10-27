@@ -22,9 +22,20 @@ class MediaFile(models.Model):
     )
     uploaded_at = models.DateTimeField(auto_now_add=True)
     accessed_at = models.DateTimeField(auto_now=True)
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="media_files")
+    privacy = models.CharField(max_length=10, choices=[("public", "Public"), ("private", "Private")], default="private")
+    folder = models.CharField(max_length=255)
+    shared_with = models.ManyToManyField(User, related_name="shared_media_files", blank=True)
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return f"{self.filename}"
+        return f"{self.filename} ({self.id})"
+
+    def url(self):
+        if self.residing_server:
+            return f"{self.residing_server.base_url}/api/cloud/files/{self.id}/preview/"
+        return None
 
 
 class Directory(models.Model):

@@ -60,7 +60,7 @@ class CloudFileSerializer(serializers.ModelSerializer):
     def get_download_url(self, obj):
         # Return a placeholder URL that the frontend can use
         # You'll need to implement the actual download endpoint
-        return f"/api/cloud/files/{obj.id}/download/"
+        return f"/api/cloud/files/{obj.media.id}/download/"
 
 
 class BreadcrumbSerializer(serializers.ModelSerializer):

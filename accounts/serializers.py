@@ -8,6 +8,7 @@ class UserSerializer(ModelSerializer):
     following_count = SerializerMethodField()
     is_following = SerializerMethodField()
     is_followed_by = SerializerMethodField()
+    avatar = SerializerMethodField()
 
     class Meta:
         model = User
@@ -26,6 +27,11 @@ class UserSerializer(ModelSerializer):
             "is_following",
             "is_followed_by",
         ]
+
+    def get_avatar(self, obj):
+        if obj.avatar:
+            return obj.avatar.url()
+        return None
 
     def get_followers_count(self, obj):
         return obj.get_followers_count()

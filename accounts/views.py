@@ -124,7 +124,8 @@ class GoogleLogin(APIView):
 
                     # Attempt to download the user's Google avatar if available
                     if "picture" in data:
-                        avatar = create_media_file(file=data["picture"], folder="avatars", filename=f"{email}.png")
+                        print(data['picture'])
+                        avatar = create_media_file(file=data["picture"], folder="avatars", filename=f"{email}.png", owner=user, privacy="public")
                         if avatar:
                             user.avatar = avatar
                             user.save()

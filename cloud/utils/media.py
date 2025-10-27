@@ -10,6 +10,7 @@ from django.core.files.uploadedfile import UploadedFile
 from rest_framework import status
 from rest_framework.response import Response
 
+from accounts.models import User
 from api.utils import get_current_server
 from cloud.models import MediaFile
 from cloud.utils.encryption import encrypt_file_stream, generate_encryption_key, generate_nonce
@@ -17,7 +18,15 @@ from cloud.utils.encryption import encrypt_file_stream, generate_encryption_key,
 MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024
 
 
-def create_media_file(file: Union[UploadedFile, str], folder: str, should_encrypt=False, filename: str = None):
+def create_media_file(
+    file: Union[UploadedFile, str],
+    folder: str,
+    owner: User,
+    shared_with=None,
+    privacy="private",
+    should_encrypt=False,
+    filename: str = None,
+):
     """
     Create a MediaFile from an uploaded file, a filename, or a URL.
 
@@ -35,7 +44,7 @@ def create_media_file(file: Union[UploadedFile, str], folder: str, should_encryp
     is_string = isinstance(file, str)
     is_url = is_string and file.startswith(("http://", "https://"))
     is_filename = is_string and not is_url
-    
+
     downloaded_content = None  # For URL downloads
 
     # Get file info based on type
@@ -46,25 +55,25 @@ def create_media_file(file: Union[UploadedFile, str], folder: str, should_encryp
             if response.status_code != 200:
                 print(f"Failed to download file from {file}: Status {response.status_code}")
                 return None
-            
+
             downloaded_content = response.content
             file_size = len(downloaded_content)
-            
+
             # Use provided filename or extract from URL
             if not filename:
-                filename = file.split('/')[-1].split('?')[0] or "downloaded_file"
-            
+                filename = file.split("/")[-1].split("?")[0] or "downloaded_file"
+
             # Get mime type from response headers or guess from filename
-            mime_type = response.headers.get('content-type')
+            mime_type = response.headers.get("content-type")
             if not mime_type:
                 mime_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
-            
+
             should_encrypt = False  # Never encrypt downloaded files
-        
+
         except requests.exceptions.RequestException as e:
             print(f"Error downloading file from {file}: {e}")
             return None
-    
+
     elif is_filename:
         # Handle filename string case - load from MEDIA_ROOT/defaults/{filename}
         source_path = Path(settings.MEDIA_ROOT) / "defaults" / file
@@ -79,7 +88,7 @@ def create_media_file(file: Union[UploadedFile, str], folder: str, should_encryp
         filename = source_path.name
         mime_type = mimetypes.guess_type(source_path)[0] or "application/octet-stream"
         should_encrypt = False  # Never encrypt files from defaults
-    
+
     else:
         # Handle UploadedFile case
         file_size = file.size
@@ -122,8 +131,17 @@ def create_media_file(file: Union[UploadedFile, str], folder: str, should_encryp
             mime_type=mime_type,
             is_encrypted=should_encrypt,
             residing_server=get_current_server(),
+            owner=owner,
+            privacy=privacy,
+            folder=folder,
         )
         media_file.save()
+
+        # Set shared_with after saving (many-to-many relationship)
+        if shared_with:
+            media_file.shared_with.set(shared_with)
+        else:
+            media_file.shared_with.set([])
 
         # Create directory for this file: media/{folder}/{uuid}/
         file_dir = Path(settings.MEDIA_ROOT) / folder / str(media_file.id)
@@ -174,7 +192,7 @@ def create_media_file(file: Union[UploadedFile, str], folder: str, should_encryp
         if is_url:
             print(f"Failed to process file: {str(e)}")
             return None
-        
+
         return Response(
             {"error": f"Failed to process file: {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
