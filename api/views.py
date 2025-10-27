@@ -42,7 +42,11 @@ def verify_jwt_user(request):
 
 @api_view(["GET"])
 def ping_view(request):
-    return Response({"detail": "pong"}, status=status.HTTP_200_OK)
+    s = Server.objects.get(base_url=os.environ.get("BASE_URL", ""))
+    if s.active_status == False:
+        s.active_status = True
+        s.save()    
+    return Response({"detail": "server activated"}, status=status.HTTP_200_OK)
 
 
 @api_view(["POST"])
