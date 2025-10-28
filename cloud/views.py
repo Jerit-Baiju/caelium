@@ -77,6 +77,81 @@ def explorer_view(request):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+def create_directory(request):
+    """
+    Create a new directory.
+    Accepts:
+        - name: Name of the directory (required)
+        - parent: UUID of parent directory (optional, if not provided creates at root level)
+
+    Returns:
+        - Directory data with creation status
+    """
+    user = request.user
+
+    # Get parameters
+    directory_name = request.data.get("name", "").strip()
+    parent_id = request.data.get("parent", None)
+
+    # Validate directory name
+    if not directory_name:
+        return Response({"error": "Directory name is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    if len(directory_name) > 255:
+        return Response({"error": "Directory name is too long (max 255 characters)"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Validate parent directory if provided
+    parent_directory = None
+    if parent_id:
+        try:
+            parent_directory = Directory.objects.get(id=parent_id, owner=user)
+        except Directory.DoesNotExist:
+            return Response(
+                {"error": "Parent directory not found or access denied"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+    # Check if directory with same name already exists in this location
+    existing_dir = Directory.objects.filter(
+        name=directory_name,
+        parent=parent_directory,
+        owner=user
+    ).first()
+
+    if existing_dir:
+        return Response(
+            {"error": f"A directory with name '{directory_name}' already exists in this location"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        # Create directory
+        new_directory = Directory.objects.create(
+            name=directory_name,
+            owner=user,
+            parent=parent_directory
+        )
+
+        # Return success response
+        serializer = DirectorySerializer(new_directory)
+        return Response(
+            {
+                "success": True,
+                "message": "Directory created successfully",
+                "directory": serializer.data
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    except Exception as e:
+        return Response(
+            {"error": f"Failed to create directory: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
 def upload_file(request):
     """
     Upload a single file with optional encryption.

@@ -79,10 +79,7 @@ def create_media_file(
         source_path = Path(settings.MEDIA_ROOT) / "defaults" / file
 
         if not source_path.exists():
-            return Response(
-                {"error": f"File not found: {source_path}"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+           print(f"File not found in defaults: {source_path}") 
 
         file_size = source_path.stat().st_size
         filename = source_path.name
@@ -97,14 +94,11 @@ def create_media_file(
 
     # Check file size (5GB limit)
     if file_size > MAX_FILE_SIZE:
-        if is_url:
-            print(f"File size exceeds maximum limit of 5GB. File size: {file_size / (1024**3):.2f}GB")
+        error_msg = f"File size exceeds maximum limit of 5GB. File size: {file_size / (1024**3):.2f}GB"
+        print(error_msg)
+        if is_url or is_filename:
             return None
-        return Response(
-            {"error": f"File size exceeds maximum limit of 5GB. File size: {file_size / (1024**3):.2f}GB"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
+        raise ValueError(error_msg)
     try:
         # Calculate hash
         sha256 = hashlib.sha256()
@@ -188,12 +182,10 @@ def create_media_file(
                 shutil.rmtree(file_dir)
             media_file.delete()
 
-        # Return None for URLs, Response for other types
-        if is_url:
-            print(f"Failed to process file: {str(e)}")
+        # Return None for URLs/filenames, raise exception for uploaded files
+        error_msg = f"Failed to process file: {str(e)}"
+        print(error_msg)
+        if is_url or is_filename:
             return None
-
-        return Response(
-            {"error": f"Failed to process file: {str(e)}"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
+        
+        raise Exception(error_msg)
