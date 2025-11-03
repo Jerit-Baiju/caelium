@@ -1,9 +1,6 @@
 #!/bin/bash
 set -e  # Exit on any error
 
-# Add safe directory exception for git (using --system to avoid $HOME dependency)
-git config --system --add safe.directory /home/ubuntu/prod/caelium
-
 # Fetch latest changes
 git fetch --all
 
