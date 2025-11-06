@@ -50,7 +50,7 @@ def ping_view(request):
 
 
 @api_view(["POST"])
-def update_release_view(request):
+def redeploy_view(request):
     if "secret" not in request.data:
         return Response({"error": "Secret not provided."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -64,6 +64,7 @@ def update_release_view(request):
                 capture_output=True,
                 text=True,
                 timeout=300,
+                check=True,
             )
             current_server = Server.objects.filter(base_url=os.environ["BASE_URL"]).first()
             if current_server:
