@@ -73,9 +73,22 @@ def redeploy_view(request):
                 return Response({"success": True, "message": "Update completed successfully.", "output": result.stdout})
             else:
                 return Response({"error": "Current server not found."}, status=status.HTTP_404_NOT_FOUND)
+        except subprocess.CalledProcessError as e:
+            # Capture both stdout and stderr for detailed error information
+            return Response({
+                "error": f"Update script failed with exit code {e.returncode}",
+                "stdout": e.stdout,
+                "stderr": e.stderr,
+                "command": str(e.cmd)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except subprocess.TimeoutExpired as e:
+            return Response({
+                "error": "Update script timed out after 300 seconds",
+                "stdout": e.stdout,
+                "stderr": e.stderr
+            }, status=status.HTTP_408_REQUEST_TIMEOUT)
         except Exception as e:
-            # Log the error e
-            return Response({"error": f"Failed to start update script: {e}"})
+            return Response({"error": f"Unexpected error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     else:
         return Response({"error": "Invalid secret."}, status=status.HTTP_403_FORBIDDEN)
 
