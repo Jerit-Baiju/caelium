@@ -20,7 +20,7 @@ DEBUG = bool(os.environ["env"] == "dev")
 
 AUTH_USER_MODEL = "accounts.User"
 
-ALLOWED_HOSTS = ["cs1.caelium.co", "cs2.caelium.co", "cs1.jerit.in", "cs2.jerit.in"]
+ALLOWED_HOSTS = ["cs1.caelium.co", "cs2.caelium.co", "cs1.jerit.in", "cs2.jerit.in", "cs3.jerit.in"]
 
 if DEBUG:
     ALLOWED_HOSTS += ["192.168.43.157", "127.0.0.1", "localhost"]
@@ -37,6 +37,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://cs2.caelium.co",
     "https://cs1.jerit.in",
     "https://cs2.jerit.in",
+    "https://cs3.jerit.in",
 ]
 
 # Add custom allowed host from environment variable if it exists
