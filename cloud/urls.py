@@ -10,6 +10,10 @@ from cloud.views import (
     preview_file,
     upload_chunk,
     upload_file,
+    rename_directory,
+    rename_file,
+    move_directory,
+    move_file,
 )
 
 router = DefaultRouter()
@@ -25,4 +29,8 @@ urlpatterns = [
     path("upload/<str:upload_id>/finalize/", finalize_chunked_upload, name="cloud-upload-finalize"),
     path("files/<uuid:file_id>/preview/", preview_file, name="cloud-preview"),
     path("files/<uuid:file_id>/download/", download_file, name="cloud-download"),
+    path("directory/<uuid:directory_id>/rename/", rename_directory, name="cloud-directory-rename"),
+    path("files/<uuid:file_id>/rename/", rename_file, name="cloud-file-rename"),
+    path("directory/<uuid:directory_id>/move/", move_directory, name="cloud-directory-move"),
+    path("files/<uuid:file_id>/move/", move_file, name="cloud-file-move"),
 ]

@@ -693,3 +693,163 @@ def finalize_chunked_upload(request, upload_id):
             {"error": f"Failed to finalize upload: {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def rename_directory(request, directory_id):
+    """
+    Rename a directory.
+    Accepts:
+        - name: New name for the directory
+    """
+    user = request.user
+    new_name = request.data.get("name", "").strip()
+
+    if not new_name:
+        return Response({"error": "New name is required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    if len(new_name) > 255:
+        return Response({"error": "Directory name is too long"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        directory = Directory.objects.get(id=directory_id, owner=user)
+        
+        # Check for duplicate name in same parent
+        existing = Directory.objects.filter(
+            name=new_name,
+            parent=directory.parent,
+            owner=user
+        ).exclude(id=directory.id).exists()
+        
+        if existing:
+            return Response({"error": "A directory with this name already exists in this location"}, status=status.HTTP_400_BAD_REQUEST)
+
+        directory.name = new_name
+        directory.save()
+        
+        return Response(DirectorySerializer(directory).data)
+    except Directory.DoesNotExist:
+        return Response({"error": "Directory not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def rename_file(request, file_id):
+    """
+    Rename a file.
+    Accepts:
+        - name: New name for the file
+    """
+    user = request.user
+    new_name = request.data.get("name", "").strip()
+
+    if not new_name:
+        return Response({"error": "New name is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+    if len(new_name) > 255:
+        return Response({"error": "File name is too long"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        # We rename the CloudFile wrapper, not the underlying MediaFile
+        # Although one might argue we should rename both, for the user view CloudFile is what matters.
+        file_obj = CloudFile.objects.get(id=file_id, owner=user, is_deleted=False)
+        
+        # Check for duplicate name in same directory
+        existing = CloudFile.objects.filter(
+            name=new_name,
+            directory=file_obj.directory,
+            owner=user,
+            is_deleted=False
+        ).exclude(id=file_obj.id).exists()
+        
+        if existing:
+            return Response({"error": "A file with this name already exists in this location"}, status=status.HTTP_400_BAD_REQUEST)
+
+        file_obj.name = new_name
+        file_obj.save()
+        
+        return Response(CloudFileSerializer(file_obj).data)
+    except CloudFile.DoesNotExist:
+        return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def move_directory(request, directory_id):
+    """
+    Move a directory to a new parent.
+    Accepts:
+        - parent: UUID of the new parent directory (or null for root)
+    """
+    user = request.user
+    parent_id = request.data.get("parent")
+    
+    try:
+        directory = Directory.objects.get(id=directory_id, owner=user)
+        
+        # New parent
+        new_parent = None
+        if parent_id:
+            try:
+                new_parent = Directory.objects.get(id=parent_id, owner=user)
+                
+                # Circular dependency check
+                # Check if new_parent is a child of the directory being moved
+                temp = new_parent
+                while temp:
+                    if temp.id == directory.id:
+                        return Response({"error": "Cannot move a directory into itself or its children"}, status=status.HTTP_400_BAD_REQUEST)
+                    temp = temp.parent
+                    
+            except Directory.DoesNotExist:
+                return Response({"error": "Target parent directory not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Check for name collision in destination
+        if Directory.objects.filter(name=directory.name, parent=new_parent, owner=user).exclude(id=directory.id).exists():
+             return Response({"error": "A directory with this name already exists in the destination"}, status=status.HTTP_400_BAD_REQUEST)
+
+        directory.parent = new_parent
+        directory.save()
+        
+        return Response(DirectorySerializer(directory).data)
+    except Directory.DoesNotExist:
+        return Response({"error": "Directory not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def move_file(request, file_id):
+    """
+    Move a file to a new directory.
+    Accepts:
+        - parent: UUID of the new parent directory (or null for root)
+    """
+    user = request.user
+    parent_id = request.data.get("parent")
+    
+    try:
+        file_obj = CloudFile.objects.get(id=file_id, owner=user, is_deleted=False)
+        
+        # New parent
+        new_parent = None
+        if parent_id:
+            try:
+                new_parent = Directory.objects.get(id=parent_id, owner=user)
+            except Directory.DoesNotExist:
+                return Response({"error": "Target directory not found"}, status=status.HTTP_404_NOT_FOUND)
+                
+        # Check for name collision in destination
+        if CloudFile.objects.filter(name=file_obj.name, directory=new_parent, owner=user, is_deleted=False).exclude(id=file_obj.id).exists():
+             return Response({"error": "A file with this name already exists in the destination"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        file_obj.directory = new_parent
+        file_obj.save()
+        
+        return Response(CloudFileSerializer(file_obj).data)
+    except CloudFile.DoesNotExist:
+        return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
