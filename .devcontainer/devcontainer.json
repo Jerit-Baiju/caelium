@@ -1,0 +1,17 @@
+{
+	"name": "caelium-django",
+	"image": "mcr.microsoft.com/devcontainers/python:2-3.12-bookworm",
+	// To get infra clone https://github.com/Jerit-Baiju/infra
+	"runArgs": [
+		"--network=infra_default"
+	],
+	// "features": {},
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [],
+	// Use 'postCreateCommand' to run commands after the container is created.
+	"postCreateCommand": ".devcontainer/post-create.sh"
+	// Configure tool-specific properties.
+	// "customizations": {},
+	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+	// "remoteUser": "root"
+}
